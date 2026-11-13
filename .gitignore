@@ -3,3 +3,5 @@ __pycache__/
 re/mem.bin
 re/state.bin
 node_modules/
+re/oracle*/
+re/*.run.log

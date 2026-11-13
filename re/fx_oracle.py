@@ -23,7 +23,7 @@ def P(*a):
 _orig = emu._rep_outsb
 def snap(a):
     f = cur[0]
-    if f not in frames: return
+    if f not in frames or f in HK: return
     d4 = lambda x: int.from_bytes(emu.mu.mem_read(B + x, 4), 'little')
     fr = dict(site=a, vt=emu.vnow(), mt=emu.vnow() - t0[0], irqs=irqs[0], order=emu.mu.mem_read(B + 0x3575, 1)[0], row=emu.mu.mem_read(B + 0x3572, 1)[0],
               pal=np.array(emu.pal, dtype=np.uint8), crtc={k: v for k, v in emu.crtc.items() if v}, sq=dict(emu.sq), gc=dict(emu.gc))
@@ -34,6 +34,34 @@ def outsb(uc, a, sz, _):
     _orig(uc, a, sz, _); snap(a - B)
 emu._rep_outsb = outsb
 emu.to_pm32()
+# per-pass capture for effects driven by a main loop + ISR counters (fx7, fx9): one frame per pass = state read when the page has been drawn and the crtc start set
+# (frame addr); the counters the pass is computed from are read at the loop top (the ISR may advance them later). dump = static tables read once at the first pass.
+HK = {7: dict(top=0x4d7aa, frame=0x4dbbf, gen=0x4d920, ctr=(0x4c285, 0x4c289, 0x4c28d, 0x4c291, 0x4c66e, 0x4c672, 0x4c676, 0x4c67a, 0x4c610, 0x4c614, 0x4c618, 0x4c61c, 0x4c620, 0x4c624, 0x4c628, 0x4c62c, 0x4d228, 0x4c648, 0x4c650), extra=(0x4d234,), dump=(), par=(0x4c65e, 0x4c662, 0x4c666, 0x4c66a, 0x4c5f0, 0x4c5f4, 0x4c5f8, 0x4c5fc, 0x4c600, 0x4c604, 0x4c608, 0x4c60c)),
+      9: dict(top=0x57db2, frame=0x57e3c, gen=0x57c87, par=(0x57b99, 0x5215f, 0x519ef), parr=((0x51a37, 1024),), up=0x580b4, ctr=(0x519ff, 0x51a03, 0x51a1f, 0x51a23, 0x51a0f, 0x51a13, 0x51a2f, 0x51a33, 0x51e43, 0x51e47, 0x51e4b, 0x519ef, 0x519ee, 0x57b91, 0x57b95, 0x57b99, 0x5215f, 0x5214f, 0x52157), extra=(0x57b99, 0x519ef, 0x5215f),
+              dump=((0x51a37, 1024), (0x52181, 2048), (0x51e4f, 768), (0x519ea, 4), (0x57bb2, 4)))}
+gen = [0]; top = {}; parv = {}; upv = {}; dumped = {}
+def mk_hooks(fx, h):
+    d4 = lambda x: int.from_bytes(emu.mu.mem_read(B + x, 4), 'little')
+    def hook_gen(uc, a, sz, _): gen[0] = ireg('ECX'); parv[fx] = [d4(x) for x in h.get('par', ())] + [bytes(emu.mu.mem_read(B + x, n)) for x, n in h.get('parr', ())]
+    def hook_top(uc, a, sz, _):
+        top[fx] = [d4(x) for x in h['ctr']] + [emu.vnow(), irqs[0], emu.mu.mem_read(B + 0x3575, 1)[0], int.from_bytes(emu.mu.mem_read(B + 0x3573, 2), 'little')]
+        if h['dump'] and fx not in dumped:
+            dumped[fx] = {a: bytes(emu.mu.mem_read(B + a, n)) for a, n in h['dump']}
+            for a, n in h['dump']:
+                if n == 4: p = d4(a); dumped[fx][(a, 'ptr')] = p; dumped[fx][(p, 'buf')] = bytes(emu.mu.mem_read(B + p, 0x10000 if fx == 9 and a == 0x519ea else 0x7d00))
+    def hook_frame(uc, a, sz, _):
+        if cur[0] != fx or fx not in frames: return
+        fr = dict(site='f%d' % fx, vt=emu.vnow(), mt=emu.vnow() - t0[0], irqs=irqs[0], order=emu.mu.mem_read(B + 0x3575, 1)[0], row=emu.mu.mem_read(B + 0x3572, 1)[0], gen=gen[0], par=parv.get(fx), upprev=upv.get(fx), tick=top[fx], off=d4(h['extra'][0]), extra=[d4(x) for x in h['extra']],
+                  pal=np.array(emu.pal, dtype=np.uint8), crtc={k: v for k, v in emu.crtc.items() if v}, idx=emu.display_idx()[0].copy())
+        if fx in dumped: fr['dump'] = dumped.pop(fx)
+        frames[fx].append(fr)
+    def hook_up(uc, a, sz, _): upv[fx] = (np.array(emu.pal, dtype=np.uint8), d4(0x519ef))   # palette as uploaded at the end of the pass (+ the fade value it was computed with)
+    if h.get('up'): emu.mu.hook_add(UC_HOOK_CODE, hook_up, begin=B + h['up'], end=B + h['up'])
+    emu.mu.hook_add(UC_HOOK_CODE, hook_top, begin=B + h['top'], end=B + h['top'])
+    emu.mu.hook_add(UC_HOOK_CODE, hook_frame, begin=B + h['frame'], end=B + h['frame'])
+    if h['gen']: emu.mu.hook_add(UC_HOOK_CODE, hook_gen, begin=B + h['gen'], end=B + h['gen'])
+for fx, h in HK.items():
+    if fx in FXS: mk_hooks(fx, h)
 def save(f):
     if frames[f]:
         frames[f][-1]['idx'] = emu.display_idx()[0].copy()
