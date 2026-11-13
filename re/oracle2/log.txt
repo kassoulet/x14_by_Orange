@@ -1,0 +1,11 @@
+effect intro vt=0.0000 music_t=-1.0000 irqs 0
+effect 0 vt=2.2788 music_t=0.0000 irqs 0
+effect 1 vt=23.1422 music_t=20.8634 irqs 1223
+effect 2 vt=56.2595 music_t=53.9806 irqs 3105
+effect 3 vt=76.3407 music_t=74.0619 irqs 4054
+effect 4 vt=80.4584 music_t=78.1795 irqs 4276
+saved fx 3 128 frames
+effect 5 vt=98.2365 music_t=95.9576 irqs 4982
+effect 6 vt=109.5790 music_t=107.3002 irqs 5580
+effect 7 vt=120.4521 music_t=118.1732 irqs 6275
+saved fx 6 129 frames

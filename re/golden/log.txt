@@ -1,0 +1,124 @@
+effect intro vt=0.00 music_t=-1.00 cpu_s=0
+effect 0 vt=2.28 music_t=0.00 cpu_s=4
+ shot m0.0 fx0 order 0 row 0
+ shot m2.0 fx0 order 1 row 11
+ shot m4.0 fx0 order 1 row 30
+ shot m6.0 fx0 order 1 row 49
+ shot m8.0 fx0 order 2 row 4
+ shot m10.0 fx0 order 2 row 24
+ shot m12.0 fx0 order 2 row 43
+ shot m14.0 fx0 order 2 row 62
+ shot m16.0 fx0 order 3 row 17
+ shot m18.0 fx0 order 3 row 36
+ shot m20.0 fx0 order 3 row 56
+effect 1 vt=23.14 music_t=20.86 cpu_s=58
+ shot m22.0 fx1 order 4 row 11
+ shot m24.0 fx1 order 4 row 30
+ shot m26.0 fx1 order 4 row 49
+ shot m28.0 fx1 order 5 row 5
+ shot m30.0 fx1 order 5 row 24
+ shot m32.0 fx1 order 5 row 44
+ shot m34.0 fx1 order 5 row 63
+ shot m36.0 fx1 order 6 row 18
+ shot m38.0 fx1 order 6 row 38
+ shot m40.0 fx1 order 6 row 57
+ shot m42.0 fx1 order 7 row 12
+ shot m44.0 fx1 order 7 row 32
+ shot m46.0 fx1 order 7 row 51
+ shot m48.0 fx1 order 8 row 6
+ shot m50.0 fx1 order 8 row 26
+ shot m52.0 fx1 order 8 row 45
+effect 2 vt=56.26 music_t=53.98 cpu_s=278
+ shot m54.0 fx2 order 9 row 1
+ shot m56.0 fx2 order 9 row 39
+ shot m58.0 fx2 order 10 row 14
+ shot m60.0 fx2 order 10 row 52
+ shot m62.0 fx2 order 11 row 27
+ shot m64.0 fx2 order 12 row 1
+ shot m66.0 fx2 order 12 row 40
+ shot m68.0 fx2 order 13 row 14
+ shot m70.0 fx2 order 13 row 52
+ shot m72.0 fx2 order 14 row 27
+ shot m74.0 fx2 order 15 row 1
+effect 3 vt=76.31 music_t=74.03 cpu_s=332
+ shot m76.0 fx3 order 15 row 39
+ shot m78.0 fx3 order 16 row 14
+effect 4 vt=80.42 music_t=78.14 cpu_s=338
+ shot m80.0 fx4 order 16 row 52
+ shot m82.0 fx4 order 17 row 26
+ shot m84.0 fx4 order 18 row 1
+ shot m86.0 fx4 order 18 row 39
+ shot m88.0 fx4 order 19 row 14
+ shot m90.0 fx4 order 19 row 52
+ shot m92.0 fx4 order 20 row 27
+ shot m94.0 fx4 order 21 row 1
+effect 5 vt=98.25 music_t=95.97 cpu_s=468
+ shot m96.0 fx5 order 21 row 41
+ shot m98.0 fx5 order 22 row 14
+ shot m100.0 fx5 order 22 row 52
+ shot m102.0 fx5 order 23 row 26
+ shot m104.0 fx5 order 24 row 1
+ shot m106.0 fx5 order 24 row 39
+effect 6 vt=109.62 music_t=107.34 cpu_s=506
+ shot m108.0 fx6 order 25 row 14
+ shot m110.0 fx6 order 25 row 52
+ shot m112.0 fx6 order 26 row 27
+ shot m114.0 fx6 order 27 row 1
+ shot m116.0 fx6 order 27 row 39
+ shot m118.0 fx6 order 28 row 14
+effect 7 vt=120.41 music_t=118.13 cpu_s=518
+ shot m120.0 fx7 order 28 row 52
+ shot m122.0 fx7 order 29 row 27
+ shot m124.0 fx7 order 30 row 1
+ shot m126.0 fx7 order 30 row 39
+ shot m128.0 fx7 order 31 row 14
+ shot m130.0 fx7 order 31 row 52
+ shot m132.0 fx7 order 32 row 27
+effect 8 vt=136.26 music_t=133.98 cpu_s=541
+ shot m134.0 fx8 order 33 row 1
+ shot m136.0 fx8 order 33 row 40
+ shot m138.0 fx8 order 34 row 14
+ shot m140.0 fx8 order 34 row 52
+ shot m142.0 fx8 order 35 row 27
+ shot m144.0 fx8 order 36 row 1
+ shot m146.0 fx8 order 36 row 39
+effect 9 vt=149.59 music_t=147.31 cpu_s=563
+ shot m148.0 fx9 order 37 row 14
+ shot m150.0 fx9 order 37 row 52
+ shot m152.0 fx9 order 38 row 26
+ shot m154.0 fx9 order 39 row 1
+ shot m156.0 fx9 order 39 row 39
+ shot m158.0 fx9 order 40 row 14
+ shot m160.0 fx9 order 40 row 52
+effect 10 vt=162.93 music_t=160.65 cpu_s=587
+ shot m162.0 fx10 order 41 row 26
+ shot m164.0 fx10 order 42 row 1
+ shot m166.0 fx10 order 42 row 39
+ shot m168.0 fx10 order 43 row 14
+ shot m170.0 fx10 order 43 row 52
+ shot m172.0 fx10 order 44 row 26
+effect 11 vt=175.43 music_t=173.15 cpu_s=607
+ shot m174.0 fx11 order 45 row 1
+ shot m176.0 fx11 order 45 row 39
+ shot m178.0 fx11 order 46 row 14
+ shot m180.0 fx11 order 46 row 52
+ shot m182.0 fx11 order 47 row 27
+ shot m184.0 fx11 order 48 row 1
+ shot m186.0 fx11 order 48 row 39
+ shot m188.0 fx11 order 49 row 14
+ shot m190.0 fx11 order 49 row 52
+ shot m192.0 fx11 order 50 row 27
+ shot m194.0 fx11 order 51 row 1
+ shot m196.0 fx11 order 51 row 39
+ shot m198.0 fx11 order 52 row 14
+ shot m200.0 fx11 order 52 row 52
+ shot m202.0 fx11 order 53 row 27
+ shot m204.0 fx11 order 54 row 1
+ shot m206.0 fx11 order 54 row 40
+ shot m208.0 fx11 order 55 row 14
+ shot m210.0 fx11 order 55 row 52
+ shot m212.0 fx11 order 56 row 27
+ shot m214.0 fx11 order 57 row 1
+ shot m216.0 fx11 order 57 row 39
+effect 12 vt=219.57 music_t=217.29 cpu_s=771
+end irqs 10044
