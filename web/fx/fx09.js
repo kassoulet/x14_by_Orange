@@ -24,10 +24,11 @@ export function tableT(c1f, c23, c2f, c33) {
 }
 export const tableAt = tau => tableT((22 * tau) & 0x7ff, (3 * tau) & 0x7ff, (-15 * tau) & 0x1ff, (-16 * tau) & 0x1ff);
 export const b99At = tau => (S[((4 * tau) & 0x7ff) >> 2] + S[((5 * tau) & 0x7ff) >> 2] + S[((6 * tau) & 0x7ff) >> 2]) >> 3;
-export function blit(vram, T, b99) {   // vram: Uint8Array(65536) linear, page start 0
-  for (let i = 0; i < 16000; i++) { const w = WT[i], v = TEX[(w + b99 + T[w >> 8]) & 0xffff], o = 0x1400 + 2 * i; vram[o] = v; vram[o + 1] = v; }
+export function blit(vram, T, b99, b99b = b99, j = 16000) {   // vram: Uint8Array(65536) linear, page start 0; (b99b from word j on: only for the oracle check, an ISR tick inside the blit)
+  for (let i = 0; i < 16000; i++) { const w = WT[i], v = TEX[(w + (i < j ? b99 : b99b) + T[w >> 8]) & 0xffff], o = 0x1400 + 2 * i; vram[o] = v; vram[o + 1] = v; }
 }
 export const fade = (F, i) => (SRC[i] * F) >> 9;
+export { to8 };
 export function setPal(ctx, F) { for (let i = 0; i < 768; i++) ctx.pal[i] = to8(fade(F, i)); }
 export function showVram(vram, ctx) { ctx.h = 133; ctx.idx.set(vram.subarray(0, 133 * 320)); }
 // F after tau ticks (ISR 0x57ec3: order<=0x25: +4 capped at 0x200; order>=0x28 and row>=0x10: -4 floored at 0), tick j at E + j/VSYNC
@@ -43,3 +44,5 @@ export function render(t, ctx) {
   if (k < 0) { ctx.h = 133; ctx.idx.fill(0, 0, 133 * 320); ctx.pal.fill(0); return true; }
   vram.fill(0); blit(vram, tableAt(k), b99At(k)); showVram(vram, ctx); setPal(ctx, fadeAt(k)); return true;
 }
+export const word = i => WT[i];
+export const texel = (w, b99, T) => TEX[(w + b99 + T[w >> 8]) & 0xffff];

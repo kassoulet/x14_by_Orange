@@ -19,9 +19,13 @@ export async function init(a) {
     for (let ch = 0; ch < 3; ch++) pal6[o + ch] = Math.min(0x3f, (PT[3 * a + ch] + PT[12 + 3 * b + ch] + PT[24 + 3 * c + ch] + PT[36 + 3 * d4 + ch]) >> 1);
 }
 const wrap = (v, m) => v & m;
-function genRow(tex, ptr, tau, black) {   // one pass of 0x4d930..0x4db22: row at ptr (0..0xffff step 0x100), tau = ISR ticks since the effect started
-  const amp = [11, 12, 13, 14].map(c => (S[wrap(c * tau, 511)] + 0x100) >>> 2);
-  const r = [-13, 15, -14, 16].map(c => S[wrap(c * tau, 511)] & 0x1ff), mm = [3, -5, 4, -6].map(c => S[wrap(c * tau, 511)] & 0x1ff);
+// row parameters of the loop top 0x4d7f7..0x4d912 from the tick count: amplitudes [0x4c65e..], start indices [0x4c5f0..] and second indices [0x4c600..] (12 values)
+export function paramsAt(tau) {
+  const sa = c => S[(c * tau) & 511];
+  return [...[11, 12, 13, 14].map(c => (sa(c) + 0x100) >>> 2), ...[-13, 15, -14, 16].map(c => sa(c) & 0x1ff), ...[3, -5, 4, -6].map(c => sa(c) & 0x1ff)];
+}
+function genRow(tex, ptr, par, black) {   // one pass of 0x4d930..0x4db22: row at ptr (0..0xffff step 0x100)
+  const amp = par.slice(0, 4), r = par.slice(4, 8), mm = par.slice(8, 12);
   for (let x = 0; x < 256; x++) {
     const v = [0, 0, 0, 0];
     for (let j = 0; j < 4; j++) v[j] = ((((S[r[j]] + S[mm[j]] + 0x200) >>> 2) * amp[j]) >>> 7) & 0xc0;
@@ -31,7 +35,7 @@ function genRow(tex, ptr, tau, black) {   // one pass of 0x4d930..0x4db22: row a
 }
 // one main-loop pass: `gen` rows (= ISR ticks since the previous pass) are generated with the parameters of tick count tau.
 export const newState = () => ({ tex: new Uint8Array(65536), ptr: 0, q: -1 });
-export function pass(c, tau, gen, black) { for (let g = 0; g < gen; g++) { c.ptr = (c.ptr + 0x100) & 0xffff; genRow(c.tex, c.ptr, tau, black); } c.q++; }
+export function pass(c, par, gen, black) { for (let g = 0; g < gen; g++) { c.ptr = (c.ptr + 0x100) & 0xffff; genRow(c.tex, c.ptr, par, black); } c.q++; }
 export function draw(c, tau, ctx) {   // blit 0x4d551 with offset [0x4d234] = (tau&0xff)<<8
   const off = (tau & 0xff) << 8, tex = c.tex; ctx.h = 100;
   for (let y = 0; y < 100; y++) for (let x = 0; x < 80; x++) {
@@ -52,6 +56,6 @@ export function render(t, ctx) {
   if (!c || c.q >= k || k - c.q > 8) {   // seek / paused re-render: replay the last 256 passes (older rows are overwritten)
     c = newState(); const q0 = Math.max(0, k - 258); if (q0 > 0) { c.ptr = ((q0 - 1) * 0x100) & 0xffff; c.q = q0 - 1; }
   }
-  for (let q = c.q + 1; q <= k; q++) { const p = posf(E.v + q / VSYNC); pass(c, q, q === 0 ? 0 : 1, isBlack(p.order, p.row)); }
+  for (let q = c.q + 1; q <= k; q++) { const p = posf(E.v + q / VSYNC); pass(c, paramsAt(q), q === 0 ? 0 : 1, isBlack(p.order, p.row)); }
   cache = c; draw(c, k, ctx); return true;
 }
