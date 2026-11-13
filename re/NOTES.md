@@ -63,7 +63,12 @@ Shared engine: IRQ0 ISR installed per effect (0x4c14c/0x4c218, 0x5159c/0x51668),
 - Musical clock: libopenmpt row times (player) vs the harness' model (0.07 % shorter); the oracle check uses the model, the player libopenmpt.
 ### Seek classification (from the code)
 fx3, fx6: pure functions of t (palette = f(vsync count since E, order-change time), picture constant); seeking = evaluating render(t). fx7, fx9: see above. Not ported, not classified beyond the phase-1 remarks: fx0-2, 4, 5, 8, 10-12.
+### Next effects: what was read so far (not ported, no oracle run)
+- fx5 (0x4be79): NOT the table-driven family: feedback effect. Two 64 KB heap buffers (alloc 0x2b9), a 0xfa00 byte blob (DATA.DAT seek 0xfff848ff = -0x7b701), mode 13h + crtc 9=0x209; per pass 0x4bd4f builds two 257-entry offset tables from sines (0x4a45d / 0x4a661), 0x4bcaa blits 160x100 words that READ the previous VRAM content (`mov (%edi),%bl`, nibble mix) => state accumulates in VRAM, seek = replay from the start (or checkpoints). Exit when order == 0x19. Needs its own oracle (per-pass hook at 0x4bfd6) before porting.
+- fx9/fx7 share the 0x4c14c-style PIT/ISR helpers with fx8 (0x516xx-0x522xx data); fx8, fx4 expected to be in the same family but NOT read.
+- fx10, fx11, fx12 (62-68 KB of code+data each), fx0-2, fx4, fx8: not analysed.
+- Harness note: fx9 shows planes never written (zero in the harness) above/below the picture; whether the earlier golden frames' garbage bottom rows come from unwritten VRAM or from the missing line compare is still undecided.
 ## TODO
-0. Port the other effects (simplest next: check fx0 logos, fx7), one oracle run per batch of effects.
+0. Port the other effects: fx8, fx4, fx5, fx10-12, fx0-2 (fx7 and fx9 done); one oracle run per batch (about 14 min each; several can run in parallel, 12 cores).
 1. Per-effect analysis (decode textures in DATA.DAT, effect inner loops), then the JS port in web/ (libopenmpt for X14.S3M), reuse stv/web as player shell. Fix the CRTC line-compare.
 2. Verify the effect classification (pure vs accumulating) per effect.
