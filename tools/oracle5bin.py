@@ -11,4 +11,4 @@ d = fr[0]['dump']
 for k, v in d.items():
     if isinstance(k, int): open(out + '.dump%x' % k, 'wb').write(v)
     elif isinstance(k, tuple) and k[1] == 'buf': open(out + '.buf%x' % k[0], 'wb').write(v)
-    elif k == 'vram0': open(out + '.vram0', 'wb').write(v.astype(np.uint8).tobytes())
+    elif k == 'vram0' and v is not None: open(out + '.vram0', 'wb').write(v.astype(np.uint8).tobytes())
