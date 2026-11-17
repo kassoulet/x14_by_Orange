@@ -1,13 +1,13 @@
 // player.js - stv shell: 320x200 indexed canvas shown 4:3, music via libopenmpt (chiptune3), pause + seek, effect jump.
 // FX module API (web/fx/fxNN.js, NN=00..12):  export async function init(assets)  /  export function render(t, ctx)
-//   ctx = {fb: Uint8Array(128000) palette indices (first 320*ctx.h used; ctx.h = 200 unless the effect sets 400), pal: Uint8Array(768) RGB 8-bit (0..255; scale 6-bit VGA values *255/63 yourself),
+//   ctx = {fb: Uint8Array(128000) palette indices (first ctx.w*ctx.h used, ctx.w = 320 unless the effect sets 640; ctx.h = 200 unless the effect sets 400), pal: Uint8Array(768) RGB 8-bit (0..255; scale 6-bit VGA values *255/63 yourself),
 //          order, row (S3M position, from libopenmpt), t (music seconds, absolute)}. render fills ctx.fb and ctx.pal in place.
 import { FX, DUR, fxAt, fmt, displaySize } from './timetable.js';
 const $ = id => document.getElementById(id);
 const cvs = $('c'), g = cvs.getContext('2d');
 let img = g.createImageData(320, 200), px = new Uint32Array(img.data.buffer);
-const fbuf = new Uint8Array(128000);   // 320x200, or 320x400 for effects that set ctx.h = 400 (always shown 4:3)   // effects write ctx.idx (the ported fx modules' name); ctx.fb is the same array
-const ctx = { fb: fbuf, idx: fbuf, pal: new Uint8Array(768), order: 0, row: 0, t: 0, h: 200 };
+const fbuf = new Uint8Array(256000);   // 320x200, or 320x400 for effects that set ctx.h = 400 (always shown 4:3)   // effects write ctx.idx (the ported fx modules' name); ctx.fb is the same array
+const ctx = { fb: fbuf, idx: fbuf, pal: new Uint8Array(768), order: 0, row: 0, t: 0, h: 200, w: 320 };
 const mods = [];   // per effect: module | null (missing) | undefined (not tried)
 let playing = false, started = false, tBase = 0, wall0 = 0, cp = null, ac = null, muted = false, drag = false;
 const now = () => performance.now() / 1000;
@@ -22,7 +22,7 @@ function load(i) {
 }
 const off = document.createElement('canvas'); off.width = 320; off.height = 200;
 function placeholder(i) {
-  if (cvs.height !== 200) { cvs.height = 200; img = g.createImageData(320, 200); px = new Uint32Array(img.data.buffer); }
+  if (cvs.height !== 200 || cvs.width !== 320) { cvs.width = 320; cvs.height = 200; img = g.createImageData(320, 200); px = new Uint32Array(img.data.buffer); }
   const c = off.getContext('2d'); c.fillStyle = '#101018'; c.fillRect(0, 0, 320, 200);
   c.fillStyle = '#ff8a3d'; c.font = '16px monospace'; c.textAlign = 'center';
   c.fillText(`fx${String(i).padStart(2, '0')}: ${FX[i].name}`, 160, 95); c.fillStyle = '#888'; c.fillText('not ported yet', 160, 118);
@@ -33,11 +33,11 @@ function draw(t) {
   if (m === undefined) load(i).then(() => { if (fxAt(cur()) === i) draw(cur()); }); // loads async; placeholder meanwhile, redrawn once loaded
   if (!m) return placeholder(i);
   if (cp) { ctx.order = cp.order | 0; ctx.row = cp.row | 0; }
-  ctx.t = t; ctx.h = 200;
+  ctx.t = t; ctx.h = 200; ctx.w = 320;
   try { m.render(t, ctx); } catch (e) { console.error('fx' + i, e); mods[i] = null; return placeholder(i); }
-  if (cvs.height !== ctx.h) { cvs.height = ctx.h; img = g.createImageData(320, ctx.h); px = new Uint32Array(img.data.buffer); }
+  if (cvs.height !== ctx.h || cvs.width !== ctx.w) { cvs.width = ctx.w; cvs.height = ctx.h; img = g.createImageData(ctx.w, ctx.h); px = new Uint32Array(img.data.buffer); }
   const p = ctx.pal;
-  for (let k = 0; k < 320 * ctx.h; k++) { const j = ctx.fb[k] * 3; px[k] = 0xff000000 | p[j + 2] << 16 | p[j + 1] << 8 | p[j]; }
+  for (let k = 0; k < ctx.w * ctx.h; k++) { const j = ctx.fb[k] * 3; px[k] = 0xff000000 | p[j + 2] << 16 | p[j + 1] << 8 | p[j]; }
   g.putImageData(img, 0, 0);
 }
 async function initAudio() {

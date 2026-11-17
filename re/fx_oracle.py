@@ -36,7 +36,9 @@ emu._rep_outsb = outsb
 emu.to_pm32()
 # per-pass capture for effects driven by a main loop + ISR counters (fx7, fx9): one frame per pass = state read when the page has been drawn and the crtc start set
 # (frame addr); the counters the pass is computed from are read at the loop top (the ISR may advance them later). dump = static tables read once at the first pass.
-HK = {7: dict(top=0x4d7aa, frame=0x4dbbf, gen=0x4d920, ctr=(0x4c285, 0x4c289, 0x4c28d, 0x4c291, 0x4c66e, 0x4c672, 0x4c676, 0x4c67a, 0x4c610, 0x4c614, 0x4c618, 0x4c61c, 0x4c620, 0x4c624, 0x4c628, 0x4c62c, 0x4d228, 0x4c648, 0x4c650), extra=(0x4d234,), dump=(), par=(0x4c65e, 0x4c662, 0x4c666, 0x4c66a, 0x4c5f0, 0x4c5f4, 0x4c5f8, 0x4c5fc, 0x4c600, 0x4c604, 0x4c608, 0x4c60c)),
+HK = {2: dict(top=0x2956c, frame=0x29620, gen=0, extra=(0x26510,), ctr=tuple(range(0x26d1c, 0x26da8, 4)) + tuple(range(0x26500, 0x2651c, 4)) + (0x264fc,) + tuple(range(0x28f62, 0x28f92, 4)),
+          dump=((0x275b2, 0xa04), (0x271b2, 0x400), (0x26db2, 0x400), (0x27fbe, 0x300), (0x27fba, 4), (0xd5ed, 4), (0xd19f, 4))),
+      7: dict(top=0x4d7aa, frame=0x4dbbf, gen=0x4d920, ctr=(0x4c285, 0x4c289, 0x4c28d, 0x4c291, 0x4c66e, 0x4c672, 0x4c676, 0x4c67a, 0x4c610, 0x4c614, 0x4c618, 0x4c61c, 0x4c620, 0x4c624, 0x4c628, 0x4c62c, 0x4d228, 0x4c648, 0x4c650), extra=(0x4d234,), dump=(), par=(0x4c65e, 0x4c662, 0x4c666, 0x4c66a, 0x4c5f0, 0x4c5f4, 0x4c5f8, 0x4c5fc, 0x4c600, 0x4c604, 0x4c608, 0x4c60c)),
       4: dict(top=0x49a73, frame=(0x49b31, 0x497f0), gen=0, ctr=(0x2afc4, 0x2afc8, 0x2afcc, 0x2afd0, 0x2ffd0, 0x2ffd4, 0x2ffd8, 0x2ffdc, 0x2ffe0, 0x2ffe4, 0x2ffe8, 0x2ffec, 0x2fff0, 0x2fff4, 0x2fff8, 0x2fffc, 0x30000, 0x30004, 0x30008, 0x3000c, 0x30010, 0x30014, 0x30018, 0x3001c, 0x30020, 0x30024, 0x30028, 0x3002c, 0x30030, 0x30034, 0x30038, 0x3003c, 0x302f0, 0x302f4, 0x302f8, 0x302fc, 0x30300, 0x30304, 0x30308, 0x3030c, 0x30310, 0x30314, 0x30318, 0x3031c, 0x30320, 0x30324, 0x30328, 0x3032c, 0x30330, 0x30334, 0x30338, 0x3033c, 0x30340, 0x30344, 0x49ba8, 0x49bac, 0x49bb0, 0x49bb4, 0x49bb8, 0x49bbc, 0x49ebc, 0x49ec0, 0x49ec4, 0x49ec8, 0x49ecc, 0x48f10, 0x48f14, 0x48f18, 0x478d4, 0x478d8, 0x478dc), extra=(0x2afc5,),
          dump=((0x30349, 0x4010), (0x478e3, 0x1040), (0x35351, 0x10000), (0x48915, 0x600), (0x49ebc, 4), (0x3031d, 4), (0x491af, 0x40c))),
       5: dict(top=0x4bf28, frame=0x4bfe4, gen=0, up=0x4c0fd, upv=0x4a00c, extra=(0x4a00c,), ctr=(0x4a414, 0x4a418, 0x4a41c, 0x4a420, 0x4a430, 0x4a43c, 0x4a440, 0x4a444, 0x4a448, 0x4a00c),
@@ -60,7 +62,7 @@ def mk_hooks(fx, h):
         if h['dump'] and fx not in dumped:
             dumped[fx] = {a: bytes(emu.mu.mem_read(B + a, n)) for a, n in h['dump']}
             for a, n in h['dump']:
-                if n == 4: p = d4(a); dumped[fx][(a, 'ptr')] = p; dumped[fx][(p, 'buf')] = bytes(emu.mu.mem_read(B + p, 0x10000 if fx in (5, 10, 11) or (fx == 9 and a == 0x519ea) or (fx == 8 and a == 0x506d8) or (fx == 4 and a == 0x49ebc) else 0x3300 if fx == 8 else 0x10000 if fx == 4 and a == 0x3031d else 0x3300 if fx == 8 else 0x7d00))
+                if n == 4: p = d4(a); dumped[fx][(a, 'ptr')] = p; dumped[fx][(p, 'buf')] = bytes(emu.mu.mem_read(B + p, 0x10000 if fx in (5, 10, 11) or (fx == 2 and a != 0xd19f) or (fx == 9 and a == 0x519ea) or (fx == 8 and a == 0x506d8) or (fx == 4 and a == 0x49ebc) else 0x3300 if fx == 8 else 0x10000 if fx == 4 and a == 0x3031d else 0x3300 if fx == 8 else 0x7d00))
     def hook_frame(uc, a, sz, _):
         if cur[0] != fx or fx not in frames or fx not in top: return
         fr = dict(site='f%d' % fx, vt=emu.vnow(), mt=emu.vnow() - t0[0], irqs=irqs[0], order=emu.mu.mem_read(B + 0x3575, 1)[0], row=emu.mu.mem_read(B + 0x3572, 1)[0], gen=gen[0], par=parv.get(fx), upprev=upv.get(fx), tick=top[fx], off=d4(h['extra'][0]), extra=[d4(x) for x in h['extra']],
@@ -74,9 +76,15 @@ def mk_hooks(fx, h):
     if h['gen']: emu.mu.hook_add(UC_HOOK_CODE, hook_gen, begin=B + h['gen'], end=B + h['gen'])
 for fx, h in HK.items():
     if fx in FXS: mk_hooks(fx, h)
+if 12 in FXS:   # fx12: static picture: record the display once, at the wait loop for order 0x3b (flat 0x7abed), after the planar copy
+    def hook_pic(uc, a, sz, _):
+        if cur[0] == 12 and not frames[12]:
+            frames[12].append(dict(site='pic', vt=emu.vnow(), mt=emu.vnow() - t0[0], order=emu.mu.mem_read(B + 0x3575, 1)[0], pal=np.array(emu.pal, dtype=np.uint8),
+                                   crtc={k: v for k, v in emu.crtc.items() if v}, planes=[bytes(p) for p in emu.planes]))
+    emu.mu.hook_add(UC_HOOK_CODE, hook_pic, begin=B + 0x7abed, end=B + 0x7abed)
 def save(f):
     if frames[f]:
-        frames[f][-1]['idx'] = emu.display_idx()[0].copy()
+        if f != 12: frames[f][-1]['idx'] = emu.display_idx()[0].copy()
         np.save('%s/fx%d.npy' % (out, f), np.array(frames[f], dtype=object), allow_pickle=True); P('saved fx', f, len(frames[f]), 'frames')
 def fx_enter(uc, a, sz, _):
     prev = cur[0]; cur[0] = FX[a - B]
