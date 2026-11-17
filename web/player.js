@@ -9,7 +9,7 @@ let img = g.createImageData(320, 200), px = new Uint32Array(img.data.buffer);
 const fbuf = new Uint8Array(256000);   // 320x200, or 320x400 for effects that set ctx.h = 400 (always shown 4:3)   // effects write ctx.idx (the ported fx modules' name); ctx.fb is the same array
 const ctx = { fb: fbuf, idx: fbuf, pal: new Uint8Array(768), order: 0, row: 0, t: 0, h: 200, w: 320 };
 const mods = [];   // per effect: module | null (missing) | undefined (not tried)
-let playing = false, started = false, tBase = 0, wall0 = 0, cp = null, ac = null, muted = false, drag = false;
+let rgb = false, playing = false, started = false, tBase = 0, wall0 = 0, cp = null, ac = null, muted = false, drag = false;
 const now = () => performance.now() / 1000;
 const cur = () => playing ? Math.min(DUR, tBase + (now() - wall0)) : tBase;
 
@@ -38,6 +38,11 @@ function draw(t) {
   if (cvs.height !== ctx.h || cvs.width !== ctx.w) { cvs.width = ctx.w; cvs.height = ctx.h; img = g.createImageData(ctx.w, ctx.h); px = new Uint32Array(img.data.buffer); }
   const p = ctx.pal;
   for (let k = 0; k < ctx.w * ctx.h; k++) { const j = ctx.fb[k] * 3; px[k] = 0xff000000 | p[j + 2] << 16 | p[j + 1] << 8 | p[j]; }
+  if (rgb && i < 2) for (let r = 0; r < 120; r++) for (let x = 0; x < 320; x++) {   // fx0/fx1: each source row = 3 scanlines (R, G, B ramps): add them into one true RGB pixel, drawn on the 3 scanlines
+    const a = (20 + 3 * r) * 320 + x, ca = ctx.fb[a] * 3, cb = ctx.fb[a + 320] * 3, cc = ctx.fb[a + 640] * 3;
+    const v = 0xff000000 | Math.min(255, p[ca + 2] + p[cb + 2] + p[cc + 2]) << 16 | Math.min(255, p[ca + 1] + p[cb + 1] + p[cc + 1]) << 8 | Math.min(255, p[ca] + p[cb] + p[cc]);
+    px[a] = px[a + 320] = px[a + 640] = v;
+  }
   g.putImageData(img, 0, 0);
 }
 async function initAudio() {
@@ -73,7 +78,7 @@ const sk = $('seek'); sk.oninput = () => { drag = true; seek(sk.value / 10); }; 
 $('fxl').append(...FX.map(e => { const b = document.createElement('button'); b.textContent = `${e.i} ${e.name}`; b.title = fmt(e.t0); b.onclick = () => seek(e.t0 + 0.01); return b; }));
 addEventListener('keydown', e => {
   const k = e.key, big = e.shiftKey ? 10 : 5;
-  if (k === ' ') { e.preventDefault(); toggle(); } else if (k === 'ArrowLeft') seek(cur() - big); else if (k === 'ArrowRight') seek(cur() + big);
+  if (k.toLowerCase() === 'r') { toggleRgb(); } else if (k === ' ') { e.preventDefault(); toggle(); } else if (k === 'ArrowLeft') seek(cur() - big); else if (k === 'ArrowRight') seek(cur() + big);
   else if (k === 'ArrowUp') seek(FX[Math.max(0, fxAt(cur()) - 1)].t0 + 0.01);
   else if (k === 'ArrowDown') seek(FX[Math.min(FX.length - 1, fxAt(cur()) + 1)].t0 + 0.01);
   else if (k === 'f' || k === 'F') $('fs').click(); else if (k === 'm' || k === 'M') { muted = !muted; cp && cp.setVol(muted ? 0 : 1); }
@@ -88,3 +93,6 @@ function loop() {
 }
 $('go').textContent = 'Click or press Space to start (sound on)'; window.x14 = { seek, play, pause, cur };
 draw(0); loop();
+
+function toggleRgb() { rgb = !rgb; $('rgb').classList.toggle('on', rgb); draw(cur()); }
+$('rgb').onclick = toggleRgb;
