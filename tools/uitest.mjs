@@ -25,7 +25,7 @@ await ev('document.getElementById("pp").click()');
 const px=()=>ev('(()=>{const c=document.getElementById("c"),d=c.getContext("2d").getImageData(0,0,c.width,c.height).data;let n=0;for(let i=0;i<d.length;i+=4)if(d[i]|d[i+1]|d[i+2])n++;return [c.width,c.height,n]})()');
 // ported effects (fx02, fx03..fx12): seek in, the canvas shows the picture (not the placeholder), size; seeking back and forth gives the same picture (pure functions of t)
 const snap=()=>ev('(()=>{const c=document.getElementById("c");return Array.from(c.getContext("2d").getImageData(0,0,c.width,c.height).data.filter((v,i)=>i%97===0)).join()})()');
-for(const [t,name,h] of [[75.6,'fx03',240],[99.5,'fx05',133],[110,'fx06',200],[125,'fx07',100],[140,'fx08',96],[84,'fx04',200],[155,'fx09',133],[165,'fx10',120],[185,'fx11',400],[60,'fx02',240],[230,'fx12',240]]){await ev(`x14.seek(${t})`);await wait(1500);const [w,hh,n]=await px();ok(name+` at ${t}s renders`,n>1000,`${w}x${hh} nonblack=${n}`);
+for(const [t,name,h] of [[12,'fx00',400],[40,'fx01',400],[75.6,'fx03',240],[99.5,'fx05',133],[110,'fx06',200],[125,'fx07',100],[140,'fx08',96],[84,'fx04',200],[155,'fx09',133],[165,'fx10',120],[185,'fx11',400],[60,'fx02',240],[222,'fx12',240]]){await ev(`x14.seek(${t})`);await wait(1500);const [w,hh,n]=await px();ok(name+` at ${t}s renders`,n>1000,`${w}x${hh} nonblack=${n}`);
   if(!name.includes('placeholder'))ok(name+' is the ported effect (canvas '+w+'x'+h+')',w===(name==='fx12'?640:320)&&hh===h);}
 await ev('x14.seek(110)');await wait(500);const h1=await snap();await ev('x14.seek(76)');await wait(300);await ev('x14.seek(110)');await wait(500);const h2=await snap();
 ok('fx06 seek(110) twice gives the same picture',h1===h2);

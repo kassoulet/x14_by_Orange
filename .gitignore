@@ -5,3 +5,4 @@ re/state.bin
 node_modules/
 re/oracle*/
 re/*.run.log
+re/oracle0.time

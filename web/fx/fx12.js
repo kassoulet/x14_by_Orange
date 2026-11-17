@@ -5,11 +5,12 @@
 // Then it waits for order 0x3b (59) and returns to text mode 3 (black here). Pure function of t: no fade, no animation.
 import { pos as posDefault } from './timeline.js';
 import { to8, load } from './common.js';
-import { entryTime } from './entries.js';
+import { ENTRY, entryTime } from './entries.js';
+import { at } from './timeline.js';
 export const E = { v: null };
 let PL, PAL, posf = posDefault; export const setPos = f => { posf = f; };
 export async function init(a) {
-  E.v ??= entryTime(12);
+  E.v ??= ENTRY[12] ? entryTime(12) : at(58, 0);   // no oracle entry measurement for fx12: the order-58 row 0 of the timeline
   const d = await load(a, 'assets/fx12.bin');
   PAL = d.subarray(0xa, 0xa + 48);
   PL = [0, 1, 2, 3].map(p => new Uint8Array(65536).fill(p ? 255 : 0));

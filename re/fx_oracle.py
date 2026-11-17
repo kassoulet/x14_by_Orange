@@ -36,7 +36,11 @@ emu._rep_outsb = outsb
 emu.to_pm32()
 # per-pass capture for effects driven by a main loop + ISR counters (fx7, fx9): one frame per pass = state read when the page has been drawn and the crtc start set
 # (frame addr); the counters the pass is computed from are read at the loop top (the ISR may advance them later). dump = static tables read once at the first pass.
-HK = {2: dict(top=0x2956c, frame=0x29620, gen=0, extra=(0x26510,), ctr=tuple(range(0x26d1c, 0x26da8, 4)) + tuple(range(0x26500, 0x2651c, 4)) + (0x264fc,) + tuple(range(0x28f62, 0x28f92, 4)),
+HK = {0: dict(mid=0xdcdf, midctr=(0x753b, 0x753f), top=0xda4b, frame=0xdd8c, gen=0, extra=(0xd1a3,), ctr=(0x7573, 0x7577, 0x757b, 0x757f, 0x754b, 0x7553, 0x754f, 0x7557, 0x753b, 0x753f, 0x752f, 0x7533, 0x7537, 0xd1a3, 0xd1a7, 0x7529, 0x756b),
+          dump=((0xd3ed, 0x400), (0xd4ed, 0x400), (0x7583, 0x4000), (0xc593, 0xc00))),
+      1: dict(top=0x25e41, mid=0x25b3c, midctr=(0xfa04, 0xfa08, 0xfa14, 0xfa18, 0xf9e0), frame=0x25fd2, gen=0, extra=(0x24d24,), ctr=(0xfa04, 0xfa08, 0xfa0c, 0xfa10, 0xfa14, 0xfa18, 0xfa1c, 0xfa20, 0xf9fc, 0xf9e0, 0xf9e4, 0xf9e8, 0xf9ec, 0xf9f0, 0xf9f4, 0xf9f8, 0xf9c8, 0xf9cc, 0xf9d0, 0x24d24, 0x24d28, 0xe2bc),
+          dump=((0xfc24, 0x4400), (0x24d14, 4), (0x24d18, 4), (0xf9c0, 4), (0xd5ed, 4), (0xd193, 4), (0xe2c0, 0x1500), (0xf6c0, 0x300), (0x24a14, 0x300), (0x24d49, 0x300), (0xd19f, 4)), dsz={0x24d14: 0x9600, 0x24d18: 0x10000, 0xf9c0: 0x3c00, 0xd5ed: 0x10000, 0xd193: 0x30000, 0xd19f: 0xe100}),
+      2: dict(top=0x2956c, frame=0x29620, gen=0, extra=(0x26510,), ctr=tuple(range(0x26d1c, 0x26da8, 4)) + tuple(range(0x26500, 0x2651c, 4)) + (0x264fc,) + tuple(range(0x28f62, 0x28f92, 4)),
           dump=((0x275b2, 0xa04), (0x271b2, 0x400), (0x26db2, 0x400), (0x27fbe, 0x300), (0x27fba, 4), (0xd5ed, 4), (0xd19f, 4))),
       7: dict(top=0x4d7aa, frame=0x4dbbf, gen=0x4d920, ctr=(0x4c285, 0x4c289, 0x4c28d, 0x4c291, 0x4c66e, 0x4c672, 0x4c676, 0x4c67a, 0x4c610, 0x4c614, 0x4c618, 0x4c61c, 0x4c620, 0x4c624, 0x4c628, 0x4c62c, 0x4d228, 0x4c648, 0x4c650), extra=(0x4d234,), dump=(), par=(0x4c65e, 0x4c662, 0x4c666, 0x4c66a, 0x4c5f0, 0x4c5f4, 0x4c5f8, 0x4c5fc, 0x4c600, 0x4c604, 0x4c608, 0x4c60c)),
       4: dict(top=0x49a73, frame=(0x49b31, 0x497f0), gen=0, ctr=(0x2afc4, 0x2afc8, 0x2afcc, 0x2afd0, 0x2ffd0, 0x2ffd4, 0x2ffd8, 0x2ffdc, 0x2ffe0, 0x2ffe4, 0x2ffe8, 0x2ffec, 0x2fff0, 0x2fff4, 0x2fff8, 0x2fffc, 0x30000, 0x30004, 0x30008, 0x3000c, 0x30010, 0x30014, 0x30018, 0x3001c, 0x30020, 0x30024, 0x30028, 0x3002c, 0x30030, 0x30034, 0x30038, 0x3003c, 0x302f0, 0x302f4, 0x302f8, 0x302fc, 0x30300, 0x30304, 0x30308, 0x3030c, 0x30310, 0x30314, 0x30318, 0x3031c, 0x30320, 0x30324, 0x30328, 0x3032c, 0x30330, 0x30334, 0x30338, 0x3033c, 0x30340, 0x30344, 0x49ba8, 0x49bac, 0x49bb0, 0x49bb4, 0x49bb8, 0x49bbc, 0x49ebc, 0x49ec0, 0x49ec4, 0x49ec8, 0x49ecc, 0x48f10, 0x48f14, 0x48f18, 0x478d4, 0x478d8, 0x478dc), extra=(0x2afc5,),
@@ -52,7 +56,7 @@ HK = {2: dict(top=0x2956c, frame=0x29620, gen=0, extra=(0x26510,), ctr=tuple(ran
          dump=((0x4e25a, 256), (0x4eac8, 2048), (0x506e4, 0x600), (0x506d8, 4), (0x506dc, 4), (0x506e0, 4))),
       9: dict(top=0x57db2, frame=0x57e3c, gen=0x57c87, par=(0x57b99, 0x5215f, 0x519ef), parr=((0x51a37, 1024),), up=0x580b4, ctr=(0x519ff, 0x51a03, 0x51a1f, 0x51a23, 0x51a0f, 0x51a13, 0x51a2f, 0x51a33, 0x51e43, 0x51e47, 0x51e4b, 0x519ef, 0x519ee, 0x57b91, 0x57b95, 0x57b99, 0x5215f, 0x5214f, 0x52157), extra=(0x57b99, 0x519ef, 0x5215f),
               dump=((0x51a37, 1024), (0x52181, 2048), (0x51e4f, 768), (0x519ea, 4), (0x57bb2, 4)))}
-v0 = [None]; gen = [0]; top = {}; parv = {}; upv = {}; dumped = {}
+midv = {}; v0 = [None]; gen = [0]; top = {}; parv = {}; upv = {}; dumped = {}
 def mk_hooks(fx, h):
     d4 = lambda x: int.from_bytes(emu.mu.mem_read(B + x, 4), 'little')
     def hook_gen(uc, a, sz, _): gen[0] = ireg('ECX'); parv[fx] = [d4(x) for x in h.get('par', ())] + [bytes(emu.mu.mem_read(B + x, n)) for x, n in h.get('parr', ())]
@@ -62,14 +66,18 @@ def mk_hooks(fx, h):
         if h['dump'] and fx not in dumped:
             dumped[fx] = {a: bytes(emu.mu.mem_read(B + a, n)) for a, n in h['dump']}
             for a, n in h['dump']:
-                if n == 4: p = d4(a); dumped[fx][(a, 'ptr')] = p; dumped[fx][(p, 'buf')] = bytes(emu.mu.mem_read(B + p, 0x10000 if fx in (5, 10, 11) or (fx == 2 and a != 0xd19f) or (fx == 9 and a == 0x519ea) or (fx == 8 and a == 0x506d8) or (fx == 4 and a == 0x49ebc) else 0x3300 if fx == 8 else 0x10000 if fx == 4 and a == 0x3031d else 0x3300 if fx == 8 else 0x7d00))
+                if n == 4: p = d4(a); dumped[fx][(a, 'ptr')] = p; dumped[fx][(p, 'buf')] = bytes(emu.mu.mem_read(B + p, h['dsz'][a] if a in h.get('dsz', {}) else 0x10000 if fx in (5, 10, 11) or (fx == 2 and a != 0xd19f) or (fx == 9 and a == 0x519ea) or (fx == 8 and a == 0x506d8) or (fx == 4 and a == 0x49ebc) else 0x3300 if fx == 8 else 0x10000 if fx == 4 and a == 0x3031d else 0x3300 if fx == 8 else 0x7d00))
+    def hook_mid(uc, a, sz, _):
+        if cur[0] == fx: midv[fx] = [d4(x) for x in h['midctr']] + [emu.vnow(), irqs[0]]
     def hook_frame(uc, a, sz, _):
         if cur[0] != fx or fx not in frames or fx not in top: return
         fr = dict(site='f%d' % fx, vt=emu.vnow(), mt=emu.vnow() - t0[0], irqs=irqs[0], order=emu.mu.mem_read(B + 0x3575, 1)[0], row=emu.mu.mem_read(B + 0x3572, 1)[0], gen=gen[0], par=parv.get(fx), upprev=upv.get(fx), tick=top[fx], off=d4(h['extra'][0]), extra=[d4(x) for x in h['extra']],
                   pal=np.array(emu.pal, dtype=np.uint8), crtc={k: v for k, v in emu.crtc.items() if v}, idx=emu.display_idx()[0].copy())
         if fx in dumped: fr['dump'] = dumped.pop(fx); fr['dump']['vram0'] = v0[0]
+        if fx in midv: fr['mid'] = midv[fx]
         frames[fx].append(fr)
     def hook_up(uc, a, sz, _): upv[fx] = (np.array(emu.pal, dtype=np.uint8), d4(h.get('upv', 0x519ef)))   # palette as uploaded at the end of the pass (+ the fade value it was computed with)
+    if h.get('mid'): emu.mu.hook_add(UC_HOOK_CODE, hook_mid, begin=B + h['mid'], end=B + h['mid'])
     if h.get('up'): emu.mu.hook_add(UC_HOOK_CODE, hook_up, begin=B + h['up'], end=B + h['up'])
     emu.mu.hook_add(UC_HOOK_CODE, hook_top, begin=B + h['top'], end=B + h['top'])
     for fa in (h['frame'] if isinstance(h['frame'], tuple) else (h['frame'],)): emu.mu.hook_add(UC_HOOK_CODE, hook_frame, begin=B + fa, end=B + fa)
