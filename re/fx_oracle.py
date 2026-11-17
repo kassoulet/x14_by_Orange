@@ -84,11 +84,59 @@ def mk_hooks(fx, h):
     if h['gen']: emu.mu.hook_add(UC_HOOK_CODE, hook_gen, begin=B + h['gen'], end=B + h['gen'])
 for fx, h in HK.items():
     if fx in FXS: mk_hooks(fx, h)
+if os.environ.get('DBG1') and 1 in FXS:   # debug: per pass (first N) the warp output buffer before the blit (0x25839) and the VRAM planes after the pass -> OUTDIR/dbg1_<k>.npz; stops after N passes
+    dbgk = [0]; N1 = int(os.environ['DBG1']); pend = {}
+    def hook_blit(uc, a, sz, _):
+        if cur[0] == 1: pend['buf'] = bytes(emu.mu.mem_read(B + 0xd19f, 4)); p = int.from_bytes(pend['buf'], 'little'); pend['buf'] = bytes(emu.mu.mem_read(B + p, 57600)); pend['pg'] = int.from_bytes(emu.mu.mem_read(B + 0x24d24, 4), 'little')
+    def hook_blitend(uc, a, sz, _):
+        if cur[0] == 1 and 'buf' in pend:
+            np.savez('%s/dbg1_%d.npz' % (out, dbgk[0]), buf=np.frombuffer(pend['buf'], np.uint8), pg=pend['pg'], planes=np.array([np.frombuffer(bytes(p), np.uint8) for p in emu.planes]), crtc=np.array([emu.crtc.get(i, 0) for i in range(25)]),
+                     ov=np.frombuffer(bytes(emu.mu.mem_read(B + 0xf9c0, 4)), np.uint8), vt=emu.vnow())
+            dbgk[0] += 1; pend.clear()
+            if dbgk[0] >= N1: emu.exited[0] = 1; uc.emu_stop()
+    emu.mu.hook_add(UC_HOOK_CODE, hook_blit, begin=B + 0x25839, end=B + 0x25839)
+    emu.mu.hook_add(UC_HOOK_CODE, hook_blitend, begin=B + 0x25f64, end=B + 0x25f64)
+if os.environ.get('DBG1T') and 1 in FXS:   # debug: instruction trace of the first iterations of the 4 blit loops of the first pass
+    tr = {'n': 0, 'on': 0, 'k': 0}; TF = open(out + '/trace1.txt', 'w')
+    def hook_tr(uc, a, sz, _):
+        if cur[0] != 1: return
+        fa = a - B
+        if fa in (0x258b2, 0x2592f) and not tr['on'] and tr['k'] < 6: tr['on'] = 1; tr['n'] = 0; tr['k'] += 1; TF.write('--- start %x\n' % fa)
+        if tr['on']:
+            TF.write('%x eax=%08x ebx=%08x edx=%08x esi=%x edi=%x ebp=%x ecx=%x\n' % (fa, ireg('EAX'), ireg('EBX'), ireg('EDX'), ireg('ESI') , ireg('EDI'), ireg('EBP'), ireg('ECX'))); tr['n'] += 1
+            if tr['n'] > 150: tr['on'] = 0; TF.flush()
+        if fa == 0x25f64 and tr['k'] >= 4: TF.flush(); emu.exited[0] = 1; uc.emu_stop()
+    emu.mu.hook_add(UC_HOOK_CODE, hook_tr, begin=B + 0x258b2, end=B + 0x25a12)
+    emu.mu.hook_add(UC_HOOK_CODE, hook_tr, begin=B + 0x25f64, end=B + 0x25f64)
+if os.environ.get('DBG1W') and 1 in FXS:   # debug: log every write to VRAM offsets of interest during the first pass(es)
+    WF = open(out + '/writes1.txt', 'w'); _wm = emu.wmode; wc = [0]; WATCH = set(range(0x67c0, 0x67c8)) | set(range(0x640, 0x648)) | set(range(0x640 + 0x7d00, 0x648 + 0x7d00)) | set(range(0x67c0 + 0x7d00, 0x67c8 + 0x7d00))
+    def wmode_dbg(o, b):
+        if cur[0] == 1 and o in WATCH: WF.write('w o=%x b=%02x mask=%x eip=%x vt=%.4f sq4=%x gc5=%x gc8=%x\n' % (o, b, emu.sq[2], ireg('EIP') - B, emu.vnow(), emu.sq[4], emu.gc[5], emu.gc[8])); wc[0] += 1; WF.flush()
+        if wc[0] > 200: emu.exited[0] = 1; emu.mu.emu_stop()
+        _wm(o, b)
+    emu.wmode = wmode_dbg
+if os.environ.get('DBG1C') and 1 in FXS:   # debug: number of VRAM writes (wmode calls) per blit segment, first passes
+    _wm2 = emu.wmode; cc = [0]; seg = []; first = {}
+    def wmode_cnt(o, b):
+        if cur[0] == 1: cc[0] += 1; first.setdefault(len(seg), []).append(o) if len(first.get(len(seg), [])) < 3 else None
+        _wm2(o, b)
+    emu.wmode = wmode_cnt
+    def hseg(uc, a, sz, _):
+        if cur[0] == 1: seg.append((a - B, cc[0])); cc[0] = 0
+        if len(seg) >= 24:
+            P('segments', seg); P('first writes', {k: [hex(x) for x in v] for k, v in first.items()}); emu.exited[0] = 1; uc.emu_stop()
+    emu.mu.hook_add(UC_HOOK_CODE, hseg, begin=B + 0x258b2, end=B + 0x258b2); emu.mu.hook_add(UC_HOOK_CODE, hseg, begin=B + 0x2592f, end=B + 0x2592f)
+if os.environ.get('FIX1'):   # Unicorn artifact fix (fx1 blit): see NOTES; FIX1=tb flushes the TB cache after each self-modifying store of the overlay loop, FIX1=tlb selects the virtual TLB mode
+    if os.environ['FIX1'] == 'tlb': emu.mu.ctl_set_tlb_mode(1)
+    else:
+        def hfix(uc, a, sz, _): uc.ctl_flush_tb()
+        for a in (0x25947, 0x25967, 0x25987): emu.mu.hook_add(UC_HOOK_CODE, hfix, begin=B + a, end=B + a)
 if 12 in FXS:   # fx12: static picture: record the display once, at the wait loop for order 0x3b (flat 0x7abed), after the planar copy
     def hook_pic(uc, a, sz, _):
         if cur[0] == 12 and not frames[12]:
             frames[12].append(dict(site='pic', vt=emu.vnow(), mt=emu.vnow() - t0[0], order=emu.mu.mem_read(B + 0x3575, 1)[0], pal=np.array(emu.pal, dtype=np.uint8),
                                    crtc={k: v for k, v in emu.crtc.items() if v}, planes=[bytes(p) for p in emu.planes]))
+            save(12); emu.exited[0] = 1; uc.emu_stop()   # fx12 is the last effect: nothing enters a later effect, so without this the run never saves nor stops (the 'hang' of the first oracle12 run: it recorded the picture but ran on after the demo ended)
     emu.mu.hook_add(UC_HOOK_CODE, hook_pic, begin=B + 0x7abed, end=B + 0x7abed)
 def save(f):
     if frames[f]:
@@ -98,6 +146,10 @@ def fx_enter(uc, a, sz, _):
     prev = cur[0]; cur[0] = FX[a - B]
     if cur[0] == 0 and t0[0] is None: t0[0] = emu.vnow(); mu.mem_write(B + 0x5fe7, struct.pack('<I', 0))
     entry[cur[0]] = emu.vnow() - (t0[0] if t0[0] is not None else 0)
+    if os.environ.get('SKIP12') and isinstance(cur[0], int) and cur[0] < 12:   # fast path to fx12: at the entry of effect k jump the virtual clock to 0.05 s before the entry time of effect k+1 (times of the full run, see the logs)
+        global ninstr; ENT = [0, 20.8634, 53.9806, 74.0619, 78.1795, 95.9576, 107.3002, 118.1732, 133.9396, 147.2964, 160.6061, 172.6663, 217.2936]
+        dj = ENT[cur[0] + 1] - 0.05 - (emu.vnow() - t0[0])
+        if dj > 0: ninstr += int(dj * IPS); vt[0] = ninstr / IPS
     P('effect', cur[0], 'vt=%.4f' % emu.vnow(), 'music_t=%.4f' % (emu.vnow() - t0[0] if t0[0] is not None else -1), 'irqs', irqs[0])
     if prev in frames: save(prev)
     if prev in FXS and prev == max(FXS): emu.exited[0] = 1; uc.emu_stop()
@@ -123,6 +175,7 @@ while not emu.exited[0]:
     try: emu.mu.emu_start(ireg('EIP'), 0, count=CH)
     except UcError as e: P('ERR', e, hex(ireg('EIP'))); break
     ninstr += CH
+    if os.environ.get('DBG12') and cur[0] == 12 and (ninstr // CH) % 20000 == 0: P('DBG eip=%x vt=%.3f' % (ireg('EIP') - B, emu.vnow()))
 for f in FXS: 
     if frames[f] and not os.path.exists('%s/fx%d.npy' % (out, f)): save(f)
 json.dump(entry, open(out + '/entry.json', 'w'))

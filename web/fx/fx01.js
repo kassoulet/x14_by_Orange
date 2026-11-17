@@ -31,7 +31,7 @@ export function pass(s, T) {
     s.ovDone = true;
   }
   for (let k = 0; k < 3; k++) {   // fills (0x25e41)
-    const n = T.size[k]; if (s.off[k] !== 0x10000 && n !== 0) { const a = k * 0x10000 + s.off[k]; s.tex.fill(0x3f, a, a + (n >> 2 << 2)); s.off[k] += n; }
+    const n = T.size[k]; if (s.off[k] !== 0x10000 && n !== 0) { const a = k * 0x10000 + s.off[k]; s.tex.fill(0x3f, a, a + (n >> 2 << 2)); s.off[k] += T.adv ? T.adv[k] : n; }   // T.adv: the offset advance when the ISR ticked between the two reads of the pending size (0x25e8d fill count, 0x25e98 advance)
   }
   let [a, b, c, d] = T.ph;   // offset table (0x25b3c)
   for (let i = 0; i < 256; i++) {

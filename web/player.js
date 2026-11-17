@@ -33,15 +33,30 @@ function draw(t) {
   if (m === undefined) load(i).then(() => { if (fxAt(cur()) === i) draw(cur()); }); // loads async; placeholder meanwhile, redrawn once loaded
   if (!m) return placeholder(i);
   if (cp) { ctx.order = cp.order | 0; ctx.row = cp.row | 0; }
-  ctx.t = t; ctx.h = 200; ctx.w = 320;
+  ctx.t = t; ctx.h = 200; ctx.w = 320; ctx.rgb = rgb;
   try { m.render(t, ctx); } catch (e) { console.error('fx' + i, e); mods[i] = null; return placeholder(i); }
   if (cvs.height !== ctx.h || cvs.width !== ctx.w) { cvs.width = ctx.w; cvs.height = ctx.h; img = g.createImageData(ctx.w, ctx.h); px = new Uint32Array(img.data.buffer); }
   const p = ctx.pal;
   for (let k = 0; k < ctx.w * ctx.h; k++) { const j = ctx.fb[k] * 3; px[k] = 0xff000000 | p[j + 2] << 16 | p[j + 1] << 8 | p[j]; }
+  if (rgb && i === 11) for (let k = 0; k < 320 * 400; k++) {   // fx11: text layer (ctx.fb) blended over the column layer (ctx.mix) instead of the checkerboard
+    const a = ctx.fb[k], j = ctx.mix[k] * 3, q = a * 3;
+    px[k] = a ? 0xff000000 | (p[q + 2] + p[j + 2]) >> 1 << 16 | (p[q + 1] + p[j + 1]) >> 1 << 8 | (p[q] + p[j]) >> 1 : 0xff000000 | p[j + 2] << 16 | p[j + 1] << 8 | p[j];
+  }
   if (rgb && i < 2) for (let r = 0; r < 120; r++) for (let x = 0; x < 320; x++) {   // fx0/fx1: each source row = 3 scanlines (R, G, B ramps): add them into one true RGB pixel, drawn on the 3 scanlines
     const a = (20 + 3 * r) * 320 + x, ca = ctx.fb[a] * 3, cb = ctx.fb[a + 320] * 3, cc = ctx.fb[a + 640] * 3;
     const v = 0xff000000 | Math.min(255, p[ca + 2] + p[cb + 2] + p[cc + 2]) << 16 | Math.min(255, p[ca + 1] + p[cb + 1] + p[cc + 1]) << 8 | Math.min(255, p[ca] + p[cb] + p[cc]);
     px[a] = px[a + 320] = px[a + 640] = v;
+  }
+  if (rgb && i === 12) {   // fx12: 16-colour dithered picture: [1 2 1] x [1 2 1] smoothing of the RGB values removes the dither pattern
+    const W = ctx.w, H = ctx.h, src = px.slice(), K = [1, 2, 1];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let r = 0, gg = 0, b = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const v = src[Math.min(H - 1, Math.max(0, y + dy)) * W + Math.min(W - 1, Math.max(0, x + dx))], w = K[dy + 1] * K[dx + 1];
+        r += (v & 255) * w; gg += (v >> 8 & 255) * w; b += (v >> 16 & 255) * w;
+      }
+      px[y * W + x] = 0xff000000 | (b >> 4) << 16 | (gg >> 4) << 8 | r >> 4;
+    }
   }
   g.putImageData(img, 0, 0);
 }

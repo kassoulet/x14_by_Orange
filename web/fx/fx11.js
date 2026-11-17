@@ -82,6 +82,10 @@ export function render(t, ctx) {
   const k = Math.floor((t - E.v) * VSYNC + 1e-9); ctx.h = 400;
   if (k < 0) { ctx.idx.fill(0, 0, 320 * 400); ctx.pal.fill(0); return true; }
   const { s, t: tx } = stateAt(k), p6 = new Uint8Array(768); pass(tx, s, ctx.idx);
+  if (ctx.rgb) {   // RGB mode: no checkerboard. ctx.idx = text layer (x, L>>1), ctx.mix = column layer; the player blends them (glyph pixel: average, no glyph: column only)
+    const B = column(s), m = ctx.mix ??= new Uint8Array(128000);
+    for (let L = 0; L < 400; L++) for (let x = 0; x < 320; x++) { m[L * 320 + x] = B[(L >> 2) * 160 + 2 * (x >> 2) + (x & 1)]; ctx.idx[L * 320 + x] = tx.buf[(L >> 1) * 320 + x]; }
+  }
   const q = { ...s, a: s.a.slice(), b: s.b.slice() }; tk(q, k + 1); palette(q.fade, p6); for (let i = 0; i < 768; i++) ctx.pal[i] = to8(p6[i]);
   return true;
 }
