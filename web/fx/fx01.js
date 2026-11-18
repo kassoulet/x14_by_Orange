@@ -69,7 +69,7 @@ function replay(k) {   // state after pass k: [s, tick state before the pass k]
     n++; const S = SCHED.fx1, j0 = S.TK[n] - (n ? S.TM[n - 1] : 0), t1 = S.PT[n], t0 = n ? S.PT[n - 1] : t1 - 0.1;
     for (let q = 1; q <= j0; q++) { const p = pos(t0 + (t1 - t0) * q / j0); tick(t, p.order, p.row); }
     const tm = S.TM[n]; for (let q = 1; q <= tm; q++) { const p = pos(t1 + 0.01 * q); tick(t, p.order, p.row); }   // pending sizes read at the top, phases when the table is built
-    pass(s, { order: S.ORD[n], ph: t.ph, size: S.ADV[n], adv: S.ADV[n] });
+    pass(s, { order: S.ORD[n], ph: t.ph, size: S.FILL[n], adv: S.ADV[n] });
     if (n % CK === CK - 1) chk[(n + 1) / CK] = { s: cp(s), t: cpt(t), n };
     if (n === k) return [s, t];
   }

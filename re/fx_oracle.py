@@ -140,7 +140,14 @@ if 12 in FXS:   # fx12: static picture: record the display once, at the wait loo
                                    crtc={k: v for k, v in emu.crtc.items() if v}, planes=[bytes(p) for p in emu.planes]))
             save(12); emu.exited[0] = 1; uc.emu_stop()   # fx12 is the last effect: nothing enters a later effect, so without this the run never saves nor stops (the 'hang' of the first oracle12 run: it recorded the picture but ran on after the demo ended)
     emu.mu.hook_add(UC_HOOK_CODE, hook_pic, begin=B + 0x7abed, end=B + 0x7abed)
+fill1 = []   # fx1: the pending size [f9e4/e8/ec] at each of its two reads per plane (0x25e8d.. fill count, 0x25e98.. offset advance): (plane, 1|2, value, irq count). Pure observation (no timing change).
+if 1 in FXS:
+    def hfill(uc, a, sz, k):
+        if cur[0] == 1: fill1.append((k[0], k[1], int.from_bytes(emu.mu.mem_read(B + 0xf9e4 + 4 * k[0], 4), "little"), irqs[0], len(frames[1])))
+    for p, (r1, r2) in enumerate(((0x25e8d, 0x25e98), (0x25ee1, 0x25eec), (0x25f35, 0x25f40))):
+        for r, wr in ((r1, 1), (r2, 2)): emu.mu.hook_add(UC_HOOK_CODE, hfill, (p, wr), begin=B + r, end=B + r)
 def save(f):
+    if f == 1: json.dump(fill1, open(out + '/fill1.json', 'w'))
     if frames[f]:
         if f != 12: frames[f][-1]['idx'] = emu.display_idx()[0].copy()
         np.save('%s/fx%d.npy' % (out, f), np.array(frames[f], dtype=object), allow_pickle=True); P('saved fx', f, len(frames[f]), 'frames')
