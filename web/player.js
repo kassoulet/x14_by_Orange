@@ -17,7 +17,7 @@ const loading = [];   // per effect: in-flight load promise (one import+init per
 function load(i) {
   return loading[i] ??= (async () => {
     try { const m = await import(`./fx/fx${String(i).padStart(2, '0')}.js`); await m.init(); mods[i] = m; }
-    catch (e) { mods[i] = null; }   // broken: nothing drawn
+    catch (e) { console.error('fx' + i, e); mods[i] = null; }   // broken: nothing drawn
   })();
 }
 function draw(t) {
@@ -70,7 +70,7 @@ function layout() {
 addEventListener('resize', layout); document.addEventListener('fullscreenchange', layout); layout();
 const sync = () => { $('pp').textContent = playing ? 'Pause' : 'Play'; };
 async function play() {
-  if (!started) { started = true; $('go').remove(); await initAudio().catch(e => console.error(e)); tBase = 0; }
+  if (!started) { started = true; $('go').remove(); await initAudio().catch(e => console.error(e)); cp && cp.setPos(tBase); }   // keeps a seek made before the first Play
   else if (cp) cp.unpause();
   if (tBase >= DUR - 0.05) seek(0);
   playing = true; wall0 = now(); ac && ac.resume(); sync();
@@ -85,6 +85,7 @@ const sk = $('seek'); sk.oninput = () => { drag = true; seek(sk.value / 10); }; 
 $('fxl').append(...FX.map(e => { const b = document.createElement('button'); b.textContent = `${e.i} ${e.name}`; b.title = fmt(e.t0); b.onclick = () => seek(e.t0 + 0.01); return b; }));
 addEventListener('keydown', e => {
   const k = e.key, big = e.shiftKey ? 10 : 5;
+  if (e.target === sk && (k === 'ArrowLeft' || k === 'ArrowRight')) e.preventDefault();   // else the native range step (0.1 s) overrides the seek below
   if (k.toLowerCase() === 'r') { toggleRgb(); } else if (k === ' ') { e.preventDefault(); toggle(); } else if (k === 'ArrowLeft') seek(cur() - big); else if (k === 'ArrowRight') seek(cur() + big);
   else if (k === 'ArrowUp') seek(FX[Math.max(0, fxAt(cur()) - 1)].t0 + 0.01);
   else if (k === 'ArrowDown') seek(FX[Math.min(FX.length - 1, fxAt(cur()) + 1)].t0 + 0.01);
