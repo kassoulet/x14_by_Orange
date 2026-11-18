@@ -17,24 +17,16 @@ const loading = [];   // per effect: in-flight load promise (one import+init per
 function load(i) {
   return loading[i] ??= (async () => {
     try { const m = await import(`./fx/fx${String(i).padStart(2, '0')}.js`); await m.init(); mods[i] = m; }
-    catch (e) { mods[i] = null; }   // not ported yet (or broken): placeholder
+    catch (e) { mods[i] = null; }   // broken: nothing drawn
   })();
-}
-const off = document.createElement('canvas'); off.width = 320; off.height = 200;
-function placeholder(i) {
-  if (cvs.height !== 200 || cvs.width !== 320) { cvs.width = 320; cvs.height = 200; img = g.createImageData(320, 200); px = new Uint32Array(img.data.buffer); }
-  const c = off.getContext('2d'); c.fillStyle = '#101018'; c.fillRect(0, 0, 320, 200);
-  c.fillStyle = '#ff8a3d'; c.font = '16px monospace'; c.textAlign = 'center';
-  c.fillText(`fx${String(i).padStart(2, '0')}: ${FX[i].name}`, 160, 95); c.fillStyle = '#888'; c.fillText('not ported yet', 160, 118);
-  g.drawImage(off, 0, 0);
 }
 function draw(t) {
   const i = fxAt(t), m = mods[i];
-  if (m === undefined) load(i).then(() => { if (fxAt(cur()) === i) draw(cur()); }); // loads async; placeholder meanwhile, redrawn once loaded
-  if (!m) return placeholder(i);
+  if (m === undefined) load(i).then(() => { if (fxAt(cur()) === i) draw(cur()); }); // loads async, redrawn once loaded
+  if (!m) return;   // module still loading (or failed: see console)
   if (cp) { ctx.order = cp.order | 0; ctx.row = cp.row | 0; }
   ctx.t = t; ctx.h = 200; ctx.w = 320; ctx.rgb = rgb;
-  try { m.render(t, ctx); } catch (e) { console.error('fx' + i, e); mods[i] = null; return placeholder(i); }
+  try { m.render(t, ctx); } catch (e) { console.error('fx' + i, e); mods[i] = null; return; }
   if (cvs.height !== ctx.h || cvs.width !== ctx.w) { cvs.width = ctx.w; cvs.height = ctx.h; img = g.createImageData(ctx.w, ctx.h); px = new Uint32Array(img.data.buffer); }
   const p = ctx.pal;
   for (let k = 0; k < ctx.w * ctx.h; k++) { const j = ctx.fb[k] * 3; px[k] = 0xff000000 | p[j + 2] << 16 | p[j + 1] << 8 | p[j]; }

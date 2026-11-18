@@ -10,8 +10,8 @@
 import { pos } from './timeline.js';
 import { VSYNC, to8, load } from './common.js';
 import { entryTime } from './entries.js';
+import { SCHED } from './sched.js';
 export const E = { v: null };
-export const TPP = 4.6900;   // harness mean: ISR ticks per pass (1223-14 ticks / 262 passes); machine dependent (the loop is slow: ~12.7 passes/s in the harness)
 let M, TAB, TEXRAW, PAL0, TEX = [], LUT = new Uint8Array(65536);
 export async function init(a) {
   E.v ??= entryTime(0);
@@ -52,23 +52,18 @@ export function display(s, out, ov) {   // out: Uint8Array(320 x 400); ov (fx1):
   }
 }
 export function palette(out) { out.set(PAL0); for (let i = 0; i < 64; i++) { out[3 * i] = i; out[3 * (64 + i) + 1] = i; out[3 * (128 + i) + 2] = i; } }   // PAL0 = static bytes of the buffer at d1ad (6-bit)
-// Player schedule (harness measurement of pass rate, machine dependent): pass k has its loop top at E0 + k PP; its picture is on screen from the next top.
-// The ISR counters follow the ticks: n(k) = 9 + k TPP ticks since the effect started, reset by the order handler (orders 2, 3).
-const PP = TPP / VSYNC, CK = 32; let chk = [];
+// Player schedule: the HARNESS' per-pass schedule (sched.js, fitted: the pass costs 3..6 ticks depending on the zoom state and the CPU, not derived). Pass k: ORD[k] = order at its top,
+// F[k] = [753f] when the LUT is built (ISR ticks since the order reset); [753b] follows from the ISR code alone: c = sum over the ticks of (f >> 5). Its picture is shown from PT[k] (frame record).
+const CK = 32; let chk = [];
+const cOf = f => { let c = 0; for (let i = 1; i <= f; i++) c += i >> 5; return c; };
 function replay(k) {   // state after pass k (k >= 0)
   const c0 = chk[Math.min(Math.floor(k / CK), chk.length - 1)];
-  let s, n, f, b; if (c0) { s = { ...c0.s, buf: c0.s.buf.slice() }; ({ n, f, b } = c0); } else { s = init0(); n = -1; f = 9; b = 0; }
-  while (n < k) {
-    n++; if (n > 0) for (let q = Math.round(9 + n * TPP) - Math.round(9 + (n - 1) * TPP); q > 0; q--) { f++; b += f >> 5; }
-    const order = pos(E.v + n * PP).order;
-    if (order !== s.order && (order === 2 || order === 3)) { f = 0; b = 0; }
-    pass(s, order, b);
-    if (n % CK === CK - 1) chk[(n + 1) / CK] = { s: { ...s, buf: s.buf.slice() }, n, f, b };
-  }
+  let s, n; if (c0) { s = { ...c0.s, buf: c0.s.buf.slice() }; n = c0.n; } else { s = init0(); n = -1; }
+  while (n < k) { n++; pass(s, SCHED.fx0.ORD[n], cOf(SCHED.fx0.F[n])); if (n % CK === CK - 1) chk[(n + 1) / CK] = { s: { ...s, buf: s.buf.slice() }, n }; }
   return s;
 }
 export function render(t, ctx) {
-  ctx.h = 400; ctx.w = 320; const k = Math.floor((t - E.v) / PP) - 1; ctx.pal.fill(0);
+  ctx.h = 400; ctx.w = 320; const PT = SCHED.fx0.PT; let k = -1; while (k + 1 < PT.length && PT[k + 1] <= t) k++; ctx.pal.fill(0);
   if (k < 0) { ctx.idx.fill(0, 0, 320 * 400); return true; }
   const p6 = new Uint8Array(768); palette(p6); for (let i = 0; i < 768; i++) ctx.pal[i] = to8(p6[i]);
   display(replay(Math.min(k, 261)), ctx.idx); return true;

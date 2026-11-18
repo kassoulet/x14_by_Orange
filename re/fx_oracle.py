@@ -131,10 +131,12 @@ if os.environ.get('FIX1'):   # Unicorn artifact fix (fx1 blit): see NOTES; FIX1=
     else:
         def hfix(uc, a, sz, _): uc.ctl_flush_tb()
         for a in (0x25947, 0x25967, 0x25987): emu.mu.hook_add(UC_HOOK_CODE, hfix, begin=B + a, end=B + a)
+picdone = []
 if 12 in FXS:   # fx12: static picture: record the display once, at the wait loop for order 0x3b (flat 0x7abed), after the planar copy
     def hook_pic(uc, a, sz, _):
-        if cur[0] == 12 and not frames[12]:
-            frames[12].append(dict(site='pic', vt=emu.vnow(), mt=emu.vnow() - t0[0], order=emu.mu.mem_read(B + 0x3575, 1)[0], pal=np.array(emu.pal, dtype=np.uint8),
+        if cur[0] == 12 and not picdone:   # NOT 'not frames[12]': snap() already appended a palette-upload record for fx12 (site 0x7aba9) -> the old test was never true, the run never saved (16 h)
+            picdone.append(1)
+            frames[12].insert(0, dict(site='pic', vt=emu.vnow(), mt=emu.vnow() - t0[0], order=emu.mu.mem_read(B + 0x3575, 1)[0], pal=np.array(emu.pal, dtype=np.uint8),
                                    crtc={k: v for k, v in emu.crtc.items() if v}, planes=[bytes(p) for p in emu.planes]))
             save(12); emu.exited[0] = 1; uc.emu_stop()   # fx12 is the last effect: nothing enters a later effect, so without this the run never saves nor stops (the 'hang' of the first oracle12 run: it recorded the picture but ran on after the demo ended)
     emu.mu.hook_add(UC_HOOK_CODE, hook_pic, begin=B + 0x7abed, end=B + 0x7abed)

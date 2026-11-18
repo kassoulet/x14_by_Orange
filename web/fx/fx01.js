@@ -8,10 +8,10 @@
 //   palette (0x25fe3): ramps (i * step) >> 8 over the base palette, steps [f9c8,f9cc,f9d0] = 256, decremented per tick from order 8 row >= 0x20 (fade out).
 import { pos } from './timeline.js';
 import { VSYNC, to8, load } from './common.js';
+import { SCHED } from './sched.js';
 import { entryTime } from './entries.js';
 import { display } from './fx00.js';
 export const E = { v: null };
-export const TPP = 4.0;   // harness mean ISR ticks per pass (1871 ticks / 469 passes); machine dependent
 let S, MAP, TEX0, LUT, OVSRC, CT, PAL0, BUF0;
 export async function init(a) {
   E.v ??= entryTime(1);
@@ -57,24 +57,25 @@ export function tick(t, order, row) {
   if (t.flag) { t.size[0] += 0x200; t.size[1] += 0xe0; t.size[2] += 0xc0; }
   if (order === 8 && row >= 0x20 && t.pal[0]) { t.pal[0]--; t.pal[1]--; t.pal[2]--; }
 }
-// Player schedule (harness measurement, machine dependent): pass k has its loop top at E.v + k PP; ISR tick j happens at E.v + j PP / TPP; the picture of pass k is shown from pass k+1's top.
-const PP = TPP / VSYNC, CK = 32; let chk = [];
+// Player schedule: the HARNESS' per-pass schedule (sched.js, fitted: ticks per pass 3..5 and pass times are machine dependent, not derived). TK[n] ISR ticks happen between record n-1 and n
+// (TK[0] = the 7 ticks before the first top), evenly spread in time; ORD[n] = order at the top of pass n; the picture of pass n is shown from PT[n] (frame record).
+const CK = 32; let chk = [];
 const cp = s => ({ ...s, buf: s.buf.slice(), tex: s.tex.slice(), off: [...s.off] });
 const cpt = t => ({ ph: [...t.ph], flag: t.flag, size: [...t.size], pal: [...t.pal] });
 function replay(k) {   // state after pass k: [s, tick state before the pass k]
   const c0 = chk[Math.min(Math.floor(k / CK), chk.length - 1)];
   let s, t, n; if (c0) { s = cp(c0.s); t = cpt(c0.t); n = c0.n; } else { s = init0(); t = tick0(); n = -1; }
   while (n < k) {
-    n++; const j0 = n ? Math.round(n * TPP) - Math.round((n - 1) * TPP) : 0;
-    for (let q = 0; q < j0; q++) { const p = pos(E.v + (Math.round(n * TPP) - q) * PP / TPP); tick(t, p.order, p.row); }
-    const o = pos(E.v + n * PP).order;
-    pass(s, { order: o, ph: t.ph, size: t.size });
+    n++; const S = SCHED.fx1, j0 = S.TK[n] - (n ? S.TM[n - 1] : 0), t1 = S.PT[n], t0 = n ? S.PT[n - 1] : t1 - 0.1;
+    for (let q = 1; q <= j0; q++) { const p = pos(t0 + (t1 - t0) * q / j0); tick(t, p.order, p.row); }
+    const tm = S.TM[n]; for (let q = 1; q <= tm; q++) { const p = pos(t1 + 0.01 * q); tick(t, p.order, p.row); }   // pending sizes read at the top, phases when the table is built
+    pass(s, { order: S.ORD[n], ph: t.ph, size: S.ADV[n], adv: S.ADV[n] });
     if (n % CK === CK - 1) chk[(n + 1) / CK] = { s: cp(s), t: cpt(t), n };
     if (n === k) return [s, t];
   }
 }
 export function render(t, ctx) {
-  ctx.h = 400; ctx.w = 320; const k = Math.floor((t - E.v) / PP) - 1; ctx.pal.fill(0);
+  ctx.h = 400; ctx.w = 320; const PT = SCHED.fx1.PT; let k = -1; while (k + 1 < PT.length && PT[k + 1] <= t) k++; ctx.pal.fill(0);
   if (k < 0) { ctx.idx.fill(0, 0, 320 * 400); return true; }
   const [s, tk] = replay(k), p6 = new Uint8Array(768); palette(tk.pal, p6); for (let i = 0; i < 768; i++) ctx.pal[i] = to8(p6[i]);
   show(s, ctx.idx); return true;
