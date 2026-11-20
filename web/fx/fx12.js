@@ -2,7 +2,8 @@
 // Code read from the unpacked image (linear 0x8baa4..): DAC zeroed; planes 1-3 filled with 0xff over 64 KB (plane 0 stays 0 from the mode set); the file
 // (0xfa3a bytes, DATA.DAT at len-0xe3845: 10-byte header "RIX3" 640 200, 16 x RGB 6-bit at +0xa, then 200 rows x 4 planes x 80 bytes at +0x3a, row-major, plane = ebx&3)
 // is copied plane by plane to VRAM offset 0xc8f + 80 r (linear, stride 80: a row of the picture wraps onto the next display row), palette = the 16 file colours.
-// Then it waits for order 0x3b (59) and returns to text mode 3 (black here). Pure function of t: no fade, no animation.
+// Then it polls `cmpw $0x3b,[0x3575]` (flat 0x7abed) and would return to text mode 3 - but with the GUS player that word is order*0x101 (the player stores the order in BOTH [3575] and [3576]),
+// so it is 0x3b3b at order 59 and the test never succeeds: the picture stays on screen for good (the music loops to order 0 after order 62). Pure function of t: no fade, no animation.
 import { pos as posDefault } from './timeline.js';
 import { VSYNC, to8, load } from './common.js';
 import { ENTRY, entryTime } from './entries.js';
@@ -26,7 +27,7 @@ export async function init(a, a11) {
 export function render(t, ctx) {
   ctx.w = 640; ctx.h = 240;
   ctx.pal.fill(0);
-  if (t < E.v || posf(t).order >= 59) { ctx.idx.fill(0, 0, 640 * 240); return true; }
+  if (t < E.v) { ctx.idx.fill(0, 0, 640 * 240); return true; }
   for (let i = 0; i < 48; i++) ctx.pal[i] = to8(PAL[i]);
   for (let y = 0; y < 240; y++) for (let x = 0; x < 640; x++) {
     const o = y * 80 + (x >> 3), m = 0x80 >> (x & 7);
