@@ -12,7 +12,8 @@
 // 4e672 +7, 4e676 -9. Palette: 8 blocks of 32 colours = the 32-colour source scaled by 16*(b+1)/128 (clamped 63).
 // Everything is a function of the tick count (VRAM rewritten each pass): seek is free.
 import { pos as posDefault } from './timeline.js';
-import { VSYNC, to8, load } from './common.js';
+import { vsync, to8, load } from './common.js';
+const VSYNC = vsync(8);
 import { entryTime } from './entries.js';
 export const E = { v: null };
 let TEX, S, SHADE, PSRC, BASEPAL, posf = posDefault; export const setPos = f => { posf = f; };

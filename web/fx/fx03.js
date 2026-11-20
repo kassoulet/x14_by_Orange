@@ -5,7 +5,8 @@
 // order change (2a7ec..2a891), then the routine returns (screen keeps c=1 until the next effect).
 // Pure function of t: frame n = floor((t-E)*VSYNC); fade-out start frame = ceil((at(16,0)-E)*VSYNC).
 import { at as atDefault } from './timeline.js';
-import { VSYNC, to8, load } from './common.js';
+import { vsync, to8, load } from './common.js';
+const VSYNC = vsync(3);
 import { entryTime } from './entries.js';
 export const ORDER_OUT = 16;
 // E: music time of the first palette upload; follows the exit of fx2 + machine-dependent init (file read, PCX decode, PIT calibration): the harness'

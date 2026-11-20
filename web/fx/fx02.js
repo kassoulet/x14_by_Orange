@@ -10,7 +10,8 @@
 //  - at the end of the pass the corner parameters for the next pass are computed from the ISR phases (16 counters +steps per tick, &0x1fff) and s.
 // ISR tick (one per vsync in the ideal schedule): see TICK below.
 import { pos as posDefault } from './timeline.js';
-import { VSYNC, to8, load } from './common.js';
+import { vsync, to8, load } from './common.js';
+const VSYNC = vsync(2);
 import { entryTime } from './entries.js';
 export const E = { v: null };
 let S, A, B, PAL, ini, NOISE, T, posf = posDefault; export const setPos = f => { posf = f; };
@@ -96,11 +97,12 @@ export function display(F, start, out) {
     }
   }
 }
-// ---- player entry. Ideal schedule: one ISR tick and one pass per vsync from E (the first loop top, which has already seen N0 = 11 ticks in the harness: texture init + loading); pass k renders with the
+// ---- player entry. Ideal schedule: one ISR tick and one pass per vsync from E (the first loop top, which has already seen N0 = 10 ticks in the harness: texture init + loading); pass k renders with the
 // corner parameters computed at the end of pass k-1, the tick that arrives during the pass (N0+k+1) can set the clear flag / move the CRTC start before the scatter. Seek = replay from checkpoints.
 // UNRESOLVED (machine dependent): tick/pass ratio (the harness runs 2 ticks per pass; the check below feeds the harness' own per-pass state), E, N0, the ISR's view of the music row (1-tick offset
 // at the order-13 trigger in the harness), the VRAM rows between picture rows (zero in the harness), the grey palette flash after the exit (order 15 row 2) is not modelled.
-const N0 = 11, CK = 64; let chk = [];
+// N0 = ISR ticks before the first loop top = init time in ticks: 11 at the old 70.086 Hz harness, 10 at the effect's 59.714 Hz (re/oracler1)
+const N0 = 10, CK = 64; let chk = [];
 const clone = st => ({ k: st.k, s: { ...st.s, ph: st.s.ph.slice() }, F: st.F.slice(), c: st.c.slice() });
 const tk = (s, j) => { const p = posf(E.v + (j - N0) / VSYNC); tick(s, p.order, p.row); };
 function runPass(st) {

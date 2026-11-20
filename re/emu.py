@@ -116,12 +116,12 @@ def intr(uc, no, _):
     print(f"UNHANDLED INT {no:02x} ax={eax&0xffff:04x} bx={ireg('EBX'):x} cx={ireg('ECX'):x} dx={ireg('EDX'):x} cs:eip={ireg('CS'):x}:{ireg('EIP'):x} pm={pmode()}")
     uc.emu_stop()
 def mem_inv(uc, access, addr, size, val, _): print('MEMFAULT', access, hex(addr), size, 'eip', hex(ireg('EIP')), 'cs', hex(ireg('CS'))); return False
-portlog = collections.Counter(); ports = {}; warp = [0.0]; vt = [0.0]; outlog = []
+hzper = [0]; hzlast = [None]; hzlog = collections.Counter(); portlog = collections.Counter(); ports = {}; warp = [0.0]; vt = [0.0]; outlog = []
 # ---- VGA: DAC, CRTC/seq/GC registers, planar shadow memory (mode X) fed by memory hooks on 0xa0000..0xaffff (from stv/re/emu.py) ----
 pal = [[0, 0, 0] for _ in range(256)]; pstate = {'wi': 0, 'comp': 0, 'ri': 0, 'rcomp': 0}
 planes = [bytearray(0x10000) for _ in range(4)]; latch = [0, 0, 0, 0]
 sq = {i: 0 for i in range(8)}; gc = {i: 0 for i in range(16)}; crtc = {i: 0 for i in range(0x20)}; sqi = [0]; gci = [0]; crtci = [0]
-sq[2] = 0xf; sq[4] = 0xe
+sq[1] = 1; sq[2] = 0xf; sq[4] = 0xe
 for i, v in enumerate([0x5f, 0x4f, 0x50, 0x82, 0x54, 0x80, 0xbf, 0x1f, 0, 0x41, 0, 0, 0, 0, 0, 0, 0x9c, 0x8e, 0x8f, 0x28, 0x40, 0x96, 0xb9, 0xa3, 0xff]): crtc[i] = v   # BIOS mode 13h
 gc.update({5: 0x40, 6: 5, 7: 0xf, 8: 0xff})   # the program never calls int 10h: it assumes it was started in mode 13h
 # ---- PIT channel 0 (virtual time): mode 0 one-shot (the demo re-arms it every frame, synced to retrace) or mode 2/3 periodic ----
@@ -147,10 +147,22 @@ def pit_read():
     if st['rd'] == 0: st['lat'] = None
     return b
 pit = []
+def refresh_per():
+    hzper[0] = 1 / refresh_hz(); return hzper[0]
+def refresh_hz():
+    """vertical refresh from the live CRTC/sequencer/misc-output state (CPU independent): lines = vtotal(reg 6 + overflow bits 0 and 5 of reg 7) + 2, line = (reg0 + 5) chars
+    x (8 or 9 dots), dot clock 25.175 / 28.322 MHz (misc output bits 2-3, halved by seq 1 bit 3). Normalised so the 449-line mode 13h timing is exactly the old constant 70.086 Hz
+    (25.175 MHz / (800 x 449) = 70.085); the 0.93 'retrace' phase window of the 3DA model is unchanged (a simplification: the real retrace is a few lines)."""
+    r = crtc; lines = (r[6] | (r[7] & 1) << 8 | (r[7] >> 5 & 1) << 9) + 2
+    clk = (25.175e6 if (ports.get(0x3c2, 0x63) >> 2) & 3 == 0 else 28.322e6) / (2 if sq[1] & 8 else 1)
+    f = (25.175e6 / clk) * (449 * 800) / (lines * (r[0] + 5) * (8 if sq[1] & 1 else 9))
+    hz = 70.086 * f; k = (curfx[0], lines, round(hz, 3), sq[1], ports.get(0x3c2, 0x63))
+    if hzlast[0] != k: hzlast[0] = k; hzlog[k] += 1   # observation only: distinct (effect, lines, Hz, seq1, misc) states seen by the 3DA polls
+    return 70.086 if f == 1.0 else hz
 def _in(uc, port, size, _):
     portlog[('in', port)] += 1
     if port == 0x3da:   # retrace from virtual time (70 Hz); every poll warps the clock 60 us so spin loops stay cheap
-        warp[0] += 60e-6; t = vt[0] + warp[0]; per = 1 / 70.086; return 9 if (t % per) / per > 0.93 else 0
+        warp[0] += 60e-6; t = vt[0] + warp[0]; per = hzper[0] or refresh_per(); return 9 if (t % per) / per > 0.93 else 0
     if port == 0x3c9:
         v = pal[pstate['ri']][pstate['rcomp']]; pstate['rcomp'] += 1
         if pstate['rcomp'] == 3: pstate['rcomp'] = 0; pstate['ri'] = (pstate['ri'] + 1) & 255
@@ -163,6 +175,7 @@ def _in(uc, port, size, _):
     return ports.get(port, 0)
 def _out(uc, port, size, val, _):
     portlog[('out', port)] += 1
+    if port in (0x3d5, 0x3c5, 0x3c2): hzper[0] = 0   # refresh model cache (CRTC / sequencer / misc output)
     if size == 2 and port in (0x3c4, 0x3ce, 0x3d4): _out(uc, port, 1, val & 255, _); _out(uc, port + 1, 1, val >> 8, _); return
     if port not in (0x3c9, 0x3c8, 0x3da) and len(outlog) < 4000: outlog.append((port, size, val, ireg('EIP')))
     if port == 0x3c9:
@@ -230,7 +243,7 @@ def _rd(uc, access, addr, size, val, _):
 def setbiosmode(m):
     if m & 0x7f == 0x13:
         for i, v in enumerate([0x5f, 0x4f, 0x50, 0x82, 0x54, 0x80, 0xbf, 0x1f, 0, 0x41, 0, 0, 0, 0, 0, 0, 0x9c, 0x8e, 0x8f, 0x28, 0x40, 0x96, 0xb9, 0xa3, 0xff]): crtc[i] = v
-        sq.update({1: 1, 2: 0xf, 3: 0, 4: 0xe}); gc.update({0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0x40, 6: 5, 7: 0xf, 8: 0xff})
+        hzper[0] = 0; ports[0x3c2] = 0x63; sq.update({1: 1, 2: 0xf, 3: 0, 4: 0xe}); gc.update({0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0x40, 6: 5, 7: 0xf, 8: 0xff})
         for p in planes: p[:] = bytes(len(p))
 def display_idx():
     """(indices (h,w) uint8, palette (256,3) 6-bit) of what the CRT shows now, from planar shadow + CRTC (start address, stride,

@@ -188,3 +188,4 @@ while not emu.exited[0]:
 for f in FXS: 
     if frames[f] and not os.path.exists('%s/fx%d.npy' % (out, f)): save(f)
 json.dump(entry, open(out + '/entry.json', 'w'))
+P('refresh states seen by the 3DA polls (effect, vtotal lines, Hz, seq1, misc out): ' + repr([k for k in emu.hzlog]))

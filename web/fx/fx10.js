@@ -7,7 +7,8 @@
 // ISR: phases 7a +6, 7e +5, 82 +4, 8a +0x31, 8e +0x1fd1, 92 +0x1fd3, 96 +0x27 (&0x1fff); fade [5855e]: from 512 down to 0x80 by 8 per tick; from order 0x2c, once row >= 0x10: -2 per tick to 0.
 // The texture is halved (>>1 & 0x7f per byte, first 0xfde8 bytes) before the loop. Seek = replay from E with checkpoints.
 import { pos } from './timeline.js';
-import { VSYNC, to8, load } from './common.js';
+import { vsync, to8, load } from './common.js';
+const VSYNC = vsync(10);
 import { entryTime } from './entries.js';
 export const E = { v: null };
 let PIC, TEX0, S, PAL;
