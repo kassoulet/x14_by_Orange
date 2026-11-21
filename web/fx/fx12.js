@@ -1,5 +1,5 @@
 // fx12 (original routine 0x7aae4, entry order 58): a static planar 16-colour picture (mode 12h, CRTC reg 9 = 1: every scan line doubled -> 640x240).
-// Code read from the unpacked image (linear 0x8baa4..): DAC zeroed; planes 1-3 filled with 0xff over 64 KB (plane 0 stays 0 from the mode set); the file
+// Code read from the unpacked image (linear 0x8baa4..): BIOS mode 12h set first (clears VRAM), DAC zeroed; planes 1-3 filled with 0xff over 64 KB (plane 0 stays 0 from the mode set); the file
 // (0xfa3a bytes, DATA.DAT at len-0xe3845: 10-byte header "RIX3" 640 200, 16 x RGB 6-bit at +0xa, then 200 rows x 4 planes x 80 bytes at +0x3a, row-major, plane = ebx&3)
 // is copied plane by plane to VRAM offset 0xc8f + 80 r (linear, stride 80: a row of the picture wraps onto the next display row), palette = the 16 file colours.
 // Then it polls `cmpw $0x3b,[0x3575]` (flat 0x7abed) and would return to text mode 3 - but with the GUS player that word is order*0x101 (the player stores the order in BOTH [3575] and [3576]),
@@ -8,20 +8,14 @@ import { pos as posDefault } from './timeline.js';
 import { VSYNC, to8, load } from './common.js';
 import { ENTRY, entryTime } from './entries.js';
 import { at } from './timeline.js';
-import * as f11 from './fx11.js';
 export const E = { v: null };
 let PL, PAL, posf = posDefault; export const setPos = f => { posf = f; };
-export async function init(a, a11) {
+export async function init(a) {
   E.v ??= ENTRY[12] ? entryTime(12) : at(58, 0);   // no oracle entry measurement for fx12: the order-58 row 0 of the timeline
   const d = await load(a, 'assets/fx12.bin');
   PAL = d.subarray(0xa, 0xa + 48);
   PL = [0, 1, 2, 3].map(p => new Uint8Array(65536).fill(p ? 255 : 0));
-  // plane 0 is not cleared by the original: it keeps fx11's last frame (mode X byte at offset o = pixel x = 4 (o % 80), line o / 80).
-  // Text layer = the port's at the end of fx11 (a function of the music events); column state (reveal, fade, phases a/b) = the harness' last fx11 pass (fitted: the ISR tick count at that
-  // moment is machine dependent, the ideal-schedule state differs in ~1000 of the 3215 visible bytes). phases a/b = last pass of the refresh-aware re-run (re/oracler3; the 70.086 Hz run had a=[164,82,430], b=[430,164,246]). Check: tools/fxcheck12.mjs.
-  await f11.init(a11); const c = new Uint8Array(320 * 400);
-  f11.frameWith(Math.floor((at(58, 0) - f11.E.v) * VSYNC), { reveal: 40192, ev: 1, rows: 100, fade: 224, a: [40, 20, 492], b: [492, 40, 60] }, c);
-  for (let o = 0; o < 32000; o++) PL[0][o] = c[Math.floor(o / 80) * 320 + (o % 80) * 4];
+  // plane 0 stays 0: the original's mode 12h set (int 33h gate -> int 10h ax=0012, flat 0x7aba4) clears all four planes (an earlier version assumed fx11's plane-0 text survived).
   for (let b = 0; b < 800; b++) PL[b & 3].set(d.subarray(0x3a + b * 80, 0x3a + b * 80 + 80), 0xc8f + (b >> 2) * 80);
 }
 export function render(t, ctx) {

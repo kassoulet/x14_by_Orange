@@ -78,8 +78,6 @@ function stateAt(k) {
   while (n < k) { prep(t, s); tk(s, ++n); if (n % CK === 0) chk[n / CK] = { n, ...cl(s, t) }; }
   return { s, t };
 }
-// frame of pass k with the column/ISR state overridden (fx12 leftover: the harness' last pass state, see fx12.js); the text buffer is the port's after k ticks
-export function frameWith(k, over, out) { const { s, t } = stateAt(k); pass(t, { ...s, ...over }, out); }
 export function render(t, ctx) {
   const k = Math.floor((t - E.v) * VSYNC + 1e-9); ctx.h = 400;
   if (k < 0) { ctx.idx.fill(0, 0, 320 * 400); ctx.pal.fill(0); return true; }

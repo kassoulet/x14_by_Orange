@@ -245,6 +245,11 @@ def setbiosmode(m):
         for i, v in enumerate([0x5f, 0x4f, 0x50, 0x82, 0x54, 0x80, 0xbf, 0x1f, 0, 0x41, 0, 0, 0, 0, 0, 0, 0x9c, 0x8e, 0x8f, 0x28, 0x40, 0x96, 0xb9, 0xa3, 0xff]): crtc[i] = v
         hzper[0] = 0; ports[0x3c2] = 0x63; sq.update({1: 1, 2: 0xf, 3: 0, 4: 0xe}); gc.update({0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0x40, 6: 5, 7: 0xf, 8: 0xff})
         for p in planes: p[:] = bytes(len(p))
+    if m & 0x7f == 0x12:   # BIOS mode 12h (640x480x16; fx12 sets it through the extender's int 33h gate: word [0xe0]=0x12): standard registers, start address 0, VRAM cleared (bit 7 of AL would keep it)
+        for i, v in enumerate([0x5f, 0x4f, 0x50, 0x82, 0x54, 0x80, 0x0b, 0x3e, 0, 0x40, 0, 0, 0, 0, 0, 0, 0xea, 0x8c, 0xdf, 0x28, 0, 0xe7, 0x04, 0xe3, 0xff]): crtc[i] = v
+        hzper[0] = 0; ports[0x3c2] = 0xe3; sq.update({1: 1, 2: 0xf, 3: 0, 4: 6}); gc.update({0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 5, 7: 0xf, 8: 0xff})
+        if not m & 0x80:
+            for p in planes: p[:] = bytes(len(p))
 def display_idx():
     """(indices (h,w) uint8, palette (256,3) 6-bit) of what the CRT shows now, from planar shadow + CRTC (start address, stride,
     max-scan-line doubling, LINE COMPARE split: scan lines after crtc 0x18/7.4/9.6 restart at address 0)"""
