@@ -72,4 +72,6 @@ The "RGB pixels" button (key R) merges the R, G, B scanline triplets of fx0 and 
 - The music loops to order 0 after order 62.
 - The port keeps the final picture on screen and stops at the end of the S3M (250.4 s) instead of looping.
 
+- **White pixels in the top 40 lines of the final screen are faithful to the original.** fx12 has no mode set and clears only planes 1-3, so plane 0 keeps fx11's last frame there (3215 of 3215 bytes verified against the oracle). The rendering must match the original, so they are not cleared.
+
 More detail (oracle runs, tick models, per-effect residuals, the old long status paragraphs verbatim): `re/NOTES.md`.
