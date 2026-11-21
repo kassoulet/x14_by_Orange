@@ -173,8 +173,12 @@ def _in(uc, port, size, _):
     if port == 0x64: return 0
     if port == 0x40: return pit_read()
     return ports.get(port, 0)
+dacw = set(); regaudit = collections.defaultdict(collections.Counter); modeaudit = []   # observation only: DAC entries written since the last BIOS mode set; per-effect (register, value) writes of the video ports
 def _out(uc, port, size, val, _):
     portlog[('out', port)] += 1
+    if port == 0x3c9 and size == 1: dacw.add(pstate['wi'])
+    if size == 1 and port in (0x3c0, 0x3c2, 0x3c6, 0x3c5, 0x3cf, 0x3d5):
+        regaudit[curfx[0]][(port, {0x3c5: sqi[0], 0x3cf: gci[0], 0x3d5: crtci[0]}.get(port), val)] += 1
     if port in (0x3d5, 0x3c5, 0x3c2): hzper[0] = 0   # refresh model cache (CRTC / sequencer / misc output)
     if size == 2 and port in (0x3c4, 0x3ce, 0x3d4): _out(uc, port, 1, val & 255, _); _out(uc, port + 1, 1, val >> 8, _); return
     if port not in (0x3c9, 0x3c8, 0x3da) and len(outlog) < 4000: outlog.append((port, size, val, ireg('EIP')))
@@ -240,7 +244,20 @@ def _rd(uc, access, addr, size, val, _):
     for p in range(4): latch[p] = planes[p][o]
     rm = gc[4] & 3
     for i in range(size): uc.mem_write(addr + i, bytes([planes[rm][o + i]]))
+def default_dac():
+    """the IBM VGA BIOS default 256-colour DAC loaded by every BIOS mode set (int 10h ax=00xx; AL bit 7 only keeps VRAM): 16 CGA colours, 16 greys, 9 x 24 hue ramps
+    (max/min 63/0, 63/31, 63/45, 28/0, 28/14, 28/20, 16/0, 16/8, 16/11), 8 black. Same values as dosbox-x (vga_palette)."""
+    P = [(0,0,0),(0,0,42),(0,42,0),(0,42,42),(42,0,0),(42,0,42),(42,21,0),(42,42,42),(21,21,21),(21,21,63),(21,63,21),(21,63,63),(63,21,21),(63,21,63),(63,63,21),(63,63,63)]
+    P += [(g, g, g) for g in (0,5,8,11,14,17,20,24,28,32,36,40,45,50,56,63)]
+    for mx, mn in ((63,0),(63,31),(63,45),(28,0),(28,14),(28,20),(16,0),(16,8),(16,11)):
+        s = [mn + (mx - mn) * k / 4 for k in range(1, 4)]; s = [int(-(-(v - 0.5) // 1)) for v in s]   # ceil(x - 0.5): halves round down
+        P += [(mn,mn,mx),(s[0],mn,mx),(s[1],mn,mx),(s[2],mn,mx),(mx,mn,mx),(mx,mn,s[2]),(mx,mn,s[1]),(mx,mn,s[0]),(mx,mn,mn),(mx,s[0],mn),(mx,s[1],mn),(mx,s[2],mn),
+              (mx,mx,mn),(s[2],mx,mn),(s[1],mx,mn),(s[0],mx,mn),(mn,mx,mn),(mn,mx,s[0]),(mn,mx,s[1]),(mn,mx,s[2]),(mn,mx,mx),(mn,s[2],mx),(mn,s[1],mx),(mn,s[0],mx)]
+    return P + [(0,0,0)] * 8
 def setbiosmode(m):
+    for i, c in enumerate(default_dac()): pal[i][:] = list(c)   # BIOS mode set reloads the default DAC palette (the demo's own uploads follow)
+    pstate.update({'wi': 0, 'comp': 0, 'ri': 0, 'rcomp': 0})
+    modeaudit.append((curfx[0], m, round(clk[0] / 1e6, 3), len(dacw))); dacw.clear()
     if m & 0x7f == 0x13:
         for i, v in enumerate([0x5f, 0x4f, 0x50, 0x82, 0x54, 0x80, 0xbf, 0x1f, 0, 0x41, 0, 0, 0, 0, 0, 0, 0x9c, 0x8e, 0x8f, 0x28, 0x40, 0x96, 0xb9, 0xa3, 0xff]): crtc[i] = v
         hzper[0] = 0; ports[0x3c2] = 0x63; sq.update({1: 1, 2: 0xf, 3: 0, 4: 0xe}); gc.update({0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0x40, 6: 5, 7: 0xf, 8: 0xff})

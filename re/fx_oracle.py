@@ -138,7 +138,7 @@ if 12 in FXS:   # fx12: static picture: record the display once, at the wait loo
             picdone.append(1)
             frames[12].insert(0, dict(site='pic', vt=emu.vnow(), mt=emu.vnow() - t0[0], order=emu.mu.mem_read(B + 0x3575, 1)[0], pal=np.array(emu.pal, dtype=np.uint8),
                                    crtc={k: v for k, v in emu.crtc.items() if v}, planes=[bytes(p) for p in emu.planes]))
-            save(12); emu.exited[0] = 1; uc.emu_stop()   # fx12 is the last effect: nothing enters a later effect, so without this the run never saves nor stops (the 'hang' of the first oracle12 run: it recorded the picture but ran on after the demo ended)
+            audit(12); save(12); emu.exited[0] = 1; uc.emu_stop()   # fx12 is the last effect: nothing enters a later effect, so without this the run never saves nor stops (the 'hang' of the first oracle12 run: it recorded the picture but ran on after the demo ended)
     emu.mu.hook_add(UC_HOOK_CODE, hook_pic, begin=B + 0x7abed, end=B + 0x7abed)
 fill1 = []   # fx1: the pending size [f9e4/e8/ec] at each of its two reads per plane (0x25e8d.. fill count, 0x25e98.. offset advance): (plane, 1|2, value, irq count). Pure observation (no timing change).
 if 1 in FXS:
@@ -146,11 +146,37 @@ if 1 in FXS:
         if cur[0] == 1: fill1.append((k[0], k[1], int.from_bytes(emu.mu.mem_read(B + 0xf9e4 + 4 * k[0], 4), "little"), irqs[0], len(frames[1])))
     for p, (r1, r2) in enumerate(((0x25e8d, 0x25e98), (0x25ee1, 0x25eec), (0x25f35, 0x25f40))):
         for r, wr in ((r1, 1), (r2, 2)): emu.mu.hook_add(UC_HOOK_CODE, hfill, (p, wr), begin=B + r, end=B + r)
+# fx1 blit VRAM stores: Unicorn LOSES hooked stores in the blit loops once the overlay loop (0x2592f) has patched code in its own translation block (see NOTES 'fx1'; confirmed a harness
+# artifact in 21 Nov 2026 with dosbox-x). Workaround: at the start of each blit loop (0x258b2 plain copy, 0x2592f overlay) write the stores the loop is about to make straight into the planar
+# model (same values, same order-independent addresses); the native stores then only repeat them. No change of the instruction stream/timing. NOFIX1PY=1 disables it.
+def mirror_blit(uc, a, sz, _):
+    if cur[0] != 1: return
+    ov = (a - B) == 0x2592f; esi = ireg('ESI'); edi = ireg('EDI'); rows = 16 if ov else 104; n = rows * 20; ebp = ireg('EBP')
+    rd = lambda x, m: np.frombuffer(bytes(uc.mem_read(B + x, m)), np.uint8).astype(np.uint32)
+    s = rd(esi, 8 * n + 0x9610); i8 = 8 * np.arange(n)
+    dw = lambda arr, base, off: arr[base + off] | arr[base + off + 2] << 8 | arr[base + off + 4] << 16 | arr[base + off + 6] << 24
+    A0 = dw(s, i8, 0); A1 = dw(s, i8, 0x4b00); A2 = dw(s, i8, 0x9600)
+    if ov:
+        o = rd(ebp, 8 * n + 0x1410); A0 = A0 | dw(o, i8, 0); A1 = A1 | dw(o, i8, 0xa00); A2 = A2 | dw(o, i8, 0x1400)
+    A1 = (A1 + 0x40404040) & 0xffffffff; A2 = (A2 + 0x80808080) & 0xffffffff
+    r = np.arange(n) // 20; c = np.arange(n) % 20; e = edi + r * 0xf0 + 4 * c
+    for vals, d in ((A0, 0), (A1, 0x50), (A2, 0xa0)):
+        for ee, v in zip((e + d).tolist(), vals.tolist()):
+            o2 = B + ee - 0xa0000
+            for k in range(4): emu.wmode(o2 + k, (v >> 8 * k) & 255)
+if 1 in FXS and not os.environ.get('NOFIX1PY'):
+    for fa in (0x258b2, 0x2592f): emu.mu.hook_add(UC_HOOK_CODE, mirror_blit, begin=B + fa, end=B + fa)
 def save(f):
     if f == 1: json.dump(fill1, open(out + '/fill1.json', 'w'))
     if frames[f]:
         if f != 12: frames[f][-1]['idx'] = emu.display_idx()[0].copy()
         np.save('%s/fx%d.npy' % (out, f), np.array(frames[f], dtype=object), allow_pickle=True); P('saved fx', f, len(frames[f]), 'frames')
+auditout = {}
+def audit(prev):
+    idx, p = emu.display_idx(); used = sorted(set(int(v) for v in np.unique(idx))); miss = [u for u in used if u not in emu.dacw]
+    auditout[str(prev)] = dict(dacw=len(emu.dacw), used=len(used), unwritten_used=miss, modes=[m for m in emu.modeaudit if m[0] == prev], crtc={k: v for k, v in emu.crtc.items() if v},
+        regs={repr(k): v for k, v in emu.regaudit.get(prev, {}).items()})
+    json.dump(auditout, open(out + '/audit.json', 'w'), indent=0)
 def fx_enter(uc, a, sz, _):
     prev = cur[0]; cur[0] = FX[a - B]
     if cur[0] == 0 and t0[0] is None: t0[0] = emu.vnow(); mu.mem_write(B + 0x5fe7, struct.pack('<I', 0))
@@ -159,6 +185,7 @@ def fx_enter(uc, a, sz, _):
         global ninstr; ENT = [0, 20.8634, 53.9806, 74.0619, 78.1795, 95.9576, 107.3002, 118.1732, 133.9396, 147.2964, 160.6061, 172.6663, 217.2936]
         dj = ENT[cur[0] + 1] - 0.05 - (emu.vnow() - t0[0])
         if dj > 0: ninstr += int(dj * IPS); vt[0] = ninstr / IPS
+    if os.environ.get('AUDIT') and prev != 'pre': audit(prev)
     P('effect', cur[0], 'vt=%.4f' % emu.vnow(), 'music_t=%.4f' % (emu.vnow() - t0[0] if t0[0] is not None else -1), 'irqs', irqs[0])
     if prev in frames: save(prev)
     if prev in FXS and prev == max(FXS): emu.exited[0] = 1; uc.emu_stop()
