@@ -70,6 +70,7 @@ function layout() {
 addEventListener('resize', layout); document.addEventListener('fullscreenchange', layout); layout();
 const sync = () => { $('pp').textContent = playing ? 'Pause' : 'Play'; };
 async function play() {
+  if (!ready) return;
   if (!started) { started = true; $('go').remove(); await initAudio().catch(e => console.error(e)); cp && cp.setPos(tBase); }   // keeps a seek made before the first Play
   else if (cp) cp.unpause();
   if (tBase >= DUR - 0.05) seek(0);
@@ -99,7 +100,11 @@ function loop() {
   if (playing) draw(t);
   requestAnimationFrame(loop);
 }
-$('go').textContent = 'Click or press Space to start (sound on)'; window.x14 = { seek, play, pause, cur };
+window.x14 = { seek, play, pause, cur };
+// preload every effect (import + init) before playback can start, so no effect loads while the demo runs
+let ready = false, nl = 0; $('go').textContent = 'Loading 0/' + FX.length + '...';
+Promise.all(FX.map(e => load(e.i).then(() => { $('go').textContent = 'Loading ' + (++nl) + '/' + FX.length + '...'; })))
+  .then(() => { ready = true; window.x14.ready = true; $('go').textContent = 'Click or press Space to start (sound on)'; });
 draw(0); loop();
 
 function toggleRgb() { rgb = !rgb; $('rgb').classList.toggle('on', rgb); draw(cur()); }

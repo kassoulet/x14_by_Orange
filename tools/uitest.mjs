@@ -11,7 +11,7 @@ const send=(method,params={})=>new Promise(r=>{pend[++id]=r;ws.send(JSON.stringi
 const ev=async e=>(await send('Runtime.evaluate',{expression:e,returnByValue:true,awaitPromise:true})).result.result.value;
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const ok=(n,c,x='')=>{console.log(c?'PASS':'FAIL',n,x);if(!c)process.exitCode=1};
-await send('Runtime.enable');await send('Page.navigate',{url:`http://localhost:${srv.address().port}/index.html`});await wait(1500);
+await send('Runtime.enable');await send('Page.navigate',{url:`http://localhost:${srv.address().port}/index.html`});await wait(1500);for(let i=0;i<150&&!(await ev('window.x14&&x14.ready===true').catch(()=>false));i++)await wait(200);   // effects are preloaded before play
 const tm=()=>ev('document.getElementById("tm").textContent'), cur=()=>ev('x14.cur()');
 const box=await ev('(()=>{const r=document.getElementById("stage").getBoundingClientRect();return [r.width,r.height]})()');
 ok('stage is 4:3',Math.abs(box[0]/box[1]-4/3)<0.02,box.join('x'));
