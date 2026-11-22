@@ -2,7 +2,7 @@
 
 Code Hoplite, music Dune (`X14.S3M`), graphics Der Piipo. Original files untouched.
 
-**Status: all 13 effects are ported to JS and run in the browser.** 11 are checked exact against the Unicorn run of the original; fx1 and fx12 are exact on the checked region (see the table). The detailed evidence is in `re/NOTES.md`.
+**Status: all 13 effects are ported to JS and run in the browser.** all but fx4 are checked exact against the Unicorn run of the original in the table's sense (fx4: 357 of 547 records, see below). The detailed evidence is in `re/NOTES.md`.
 
 ## Files
 
@@ -28,15 +28,15 @@ Everything the effects do with time is a pure function of `t`. "Exact" means 0 d
 | fx | Name | Check against the oracle |
 |---|---|---|
 | 0 | hoplite/dune logos | 262 passes exact when fed the harness' per-pass order and counter; the player replays that schedule (fitted, see below) |
-| 1 | swirl warp | palette exact in all 469 passes; pixels exact in about 95 % of each frame (rows >= 332 and the odd-pixel planes of the first rows cannot be trusted in the harness); the other 5 % are drawn from the code with no oracle check |
+| 1 | swirl warp | 469 passes, 0 differing pixels over the whole frame (rows >= 332 and the x&2 planes included), palette exact (oracle `re/oracle1e`) |
 | 2 | brown rotozoom | 402 passes exact; the whole tick model exact in 402 of 402 with `T13=531 T14=791` |
-| 3 | logo text | picture exact; palette exact in 126 of 128 uploads (2 harness uploads land 0.93 vsync late) |
-| 4 | tunnel | 357 of 547 records match; the other 190 differ on a few top rows (scatter caught mid-draw) or by one tick; the pre-tunnel phase is unverified |
-| 5 | feedback plasma | pixels exact in all 199 passes; palette fade off by a few 1-LSB entries in 144 passes |
+| 3 | logo text | picture exact (the 'VRAM as fx2 leaves it' background is confirmed by dosbox-x, max diff 1 over 640x480); palette exact in 126 of 128 uploads (2 harness uploads land 0.93 vsync late) |
+| 4 | tunnel | 357 of 547 records match; of the 190 others, 136 differ only in the top 0-10 rows, 53 are a whole-frame or one-tick mismatch, 1 is unclassified (probably the tick-inside-a-pass harness race, not proven); the pre-tunnel phase is unverified |
+| 5 | feedback plasma | pixels exact in all 199 passes; palette off by 1 LSB in a few entries in 144 passes: a tick lands inside the harness' 256-entry palette computation (194 of 198 passes are an exact monotone fade sequence, 4 unexplained), the port's formula is right |
 | 6 | picture + fade | picture exact; palette exact on 127 of 128 steps (harness uploaded one step 0.93 vsync late) |
 | 7 | colour ring | 373 passes exact |
 | 8 | organic blob | 266 passes exact, but only with the harness' per-pass tick phase (the port keeps the ideal one) |
-| 9 | terrain | 314 passes exact; the unwritten VRAM rows (16 above, 17 below the picture) are shown black |
+| 9 | terrain | 314 passes exact; the unwritten VRAM rows (16 above, 17 below the picture) are palette[0] (dark red, 32,0,0), as in dosbox-x |
 | 10 | warped quad | pixels exact in all 386 passes; palette fade differs in 109 passes (harness ticks per pass) |
 | 11 | twisted column | pixels exact in all 1023 passes; palette exact in all passes |
 | 12 | static picture | 153600 of 153600 pixels and 48 of 48 palette bytes exact |
@@ -50,6 +50,21 @@ Everything the effects do with time is a pure function of `t`. "Exact" means 0 d
 - **Harness limits:** IRQ0 is injected between 2000-instruction chunks, not per instruction. The CRTC line-compare split was added to the harness display and is not validated on an original frame.
 - **Not modelled:** the grey palette flash after the exit.
 - **Oracle dumps used instead of generators:** fx1's warp map, texture, LUT and initial buffer; fx0's 64 KB LUT window and texture colour tables.
+
+## dosbox-x comparison (21 Nov 2026)
+
+Screenshots of the unmodified original (2 s steps) against the port, same window position, max channel diff 1 = 6 to 8 bit DAC rounding.
+
+| Effect | Result |
+|---|---|
+| fx3, fx6, fx12 | pixel-exact over the full frame (fx12 confirms the mode 12h VRAM clear) |
+| fx9 | unwritten rows 0-47 and 348-399 are palette[0] in both |
+| fx0, 1, 2, 4, 5, 7, 8, 10, 11 | blank bands, borders and edges at the same places |
+| fx1 | normal data in rows >= 332 and the x&2 planes: the old "lost writes" were a harness artifact |
+
+Mode sets: the original does int 10h mode 13h (fx0, 2, 4-11) and 12h (fx12), never with AL bit 7, so VRAM is always cleared; fx1 and fx3 inherit the mode. The harness now reloads the BIOS default DAC at each mode set (`re/emu.py default_dac()`). An audit (`AUDIT=1`, `re/oracleA/audit.json`) shows every effect fx0-fx12 writes all 256 DAC entries after its mode set and displays no unwritten index, so the reload changes nothing for them (only the intro uses an unwritten index 0, black by default). The default table itself is not checked against dosbox-x.
+
+Limits: only the stable middle sections were compared, and the 0.6-1.2 s video/music offset below is unexplained.
 
 ## Refresh rates (dosbox-x cross-check, 20 Nov 2026)
 

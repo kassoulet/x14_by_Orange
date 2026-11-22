@@ -7,7 +7,7 @@ import fs from 'fs'; import { init, init0, pass, palette, show } from '../web/fx
 const P = process.argv[2], K = +(process.argv[3] ?? 130), M = JSON.parse(fs.readFileSync(P + '.json')), idx = fs.readFileSync(P + '.idx'), pal = fs.readFileSync(P + '.pal'), W = 320 * 400;
 await init(fs.readFileSync(new URL('../web/assets/fx01.bin', import.meta.url)));
 const out = new Uint8Array(W), p6 = new Uint8Array(768), INC = [0x200, 0xe0, 0xc0];
-const lostReg = process.env.NOLOST ? () => false : (y, x) => y >= 332 || (y < 60 && (x & 2));   // regions where the (old) Unicorn harness lost VRAM writes: NOLOST=1 for oracles taken with the mirror_blit fix (oracle1e)
+const lostReg = process.env.LOST ? (y, x) => y >= 332 || (y < 60 && (x & 2)) : () => false;   // LOST=1 only to check OLD oracles (taken before the mirror_blit fix) that lost VRAM writes in these regions
 const used = (f, t) => { const n = M[f + 1]?.top; return n ? [n[13] - t[13], n[14] - t[14], n[15] - t[15]] : [t[10], t[11], t[12]]; };
 const cl = s => ({ ...s, buf: s.buf.slice(), tex: s.tex.slice(), off: [...s.off] });
 function cands(s, f) {   // all candidates j = 0..J for pass f from state s (s.off is resynced to the harness' offsets); dpl[j][plane] = differing px outside the lost regions
